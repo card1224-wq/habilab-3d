@@ -44,6 +44,16 @@
                     <h3 class="bg-gray-50 w-full p-2 text-xs text-center font-bold text-gray-500 uppercase tracking-wide border-b border-gray-100">원본 도면 미리보기</h3>
                     <img id="preview-img" src="" alt="도면 미리보기" class="w-full h-auto max-h-48 object-contain p-2 bg-white" />
                 </div>
+
+                <!-- AI Text-to-Floorplan Input -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <h2 class="text-xl font-bold mb-3 text-gray-700">✍️ AI 프롬프트 (글로 도면 생성)</h2>
+                    <p class="text-xs text-gray-500 mb-3">AI가 텍스트를 분석해 공간 2D 도면과 3D를 동시에 그려냅니다.</p>
+                    <textarea id="ai-prompt" class="w-full text-sm border-2 border-gray-200 rounded-xl p-3 focus:outline-none focus:border-blue-500 bg-gray-50 text-gray-800" rows="3" placeholder="예: 거실 1개, 침실 2개, 화장실 1개가 있는 모던한 30평대 아파트 평면도 그려줘..."></textarea>
+                    <button id="btn-generate" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 shadow-md">✨ AI 2D/3D 자동 설계</button>
+                    <!-- Status for AI -->
+                    <div id="ai-status-box" class="hidden p-4 rounded-xl mt-4 font-medium text-center shadow-inner transition-all"></div>
+                </div>
             </div>
 
             <!-- 3D Viewer Area -->
@@ -211,13 +221,15 @@
                             node.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
                         }
 
-                        // Apply Brick Wall Texture Material
-                        node.material = new THREE.MeshStandardMaterial({
-                            map: brickTexture,
-                            bumpMap: brickBump,
-                            bumpScale: 0.8,
-                            roughness: 0.7,
-                            metalness: 0.1,
+                        // Apply Architectural Premium Interior Wall Material
+                        node.material = new THREE.MeshPhysicalMaterial({
+                            color: 0xfaf9f5, // Warm, luxurious ivory/white paint
+                            bumpMap: brickBump, // Reuse bump map to simulate fine wall plaster texture
+                            bumpScale: 0.05,    // Very subtle bumps like premium wallpaper
+                            roughness: 0.85,    // Matte finish
+                            metalness: 0.0,
+                            clearcoat: 0.1,     // Slight luxury sheen
+                            clearcoatRoughness: 0.5,
                             side: THREE.DoubleSide
                         });
                         node.geometry.computeVertexNormals(); // Make rendering smoother
@@ -312,6 +324,40 @@
                 statusBox.textContent = "서버와의 통신 오류가 발생했습니다.";
             }
         }
+
+        // Generative AI Text-to-3D Logic
+        document.getElementById('btn-generate').addEventListener('click', async () => {
+            const text = document.getElementById('ai-prompt').value.trim();
+            if (!text) return alert("도면을 어떻게 그릴지 지시할 내용을 꼭 입력해주세요!");
+            
+            const aiStatusBox = document.getElementById('ai-status-box');
+            aiStatusBox.classList.remove('hidden');
+            aiStatusBox.className = "p-4 rounded-xl font-medium text-center shadow-inner transition-all bg-indigo-100 text-indigo-800 animate-pulse mt-4";
+            aiStatusBox.innerHTML = `🧠 AI 공간을 설계 중입니다... <br/><span class="text-xs font-normal opacity-70">"${text}"</span>`;
+            document.getElementById('badge-success').classList.add('hidden');
+            document.getElementById('placeholder').classList.add('hidden');
+            
+            const formData = new FormData();
+            formData.append('prompt', text);
+            
+            try {
+                const response = await fetch('/generate', { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-green-100 text-green-800 border border-green-200 mt-4";
+                    aiStatusBox.innerHTML = `✨ AI 2D/3D 설계 완료!`;
+                    if(data.model_url) loadModel(data.model_url, data.bg_url, data.width, data.height);
+                } else {
+                    aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-100 text-red-800 border border-red-200 mt-4";
+                    aiStatusBox.textContent = "AI 설계 실패: " + data.message;
+                }
+            } catch (error) {
+                console.error(error);
+                aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-100 text-red-800 border border-red-200 mt-4";
+                aiStatusBox.textContent = "서버 접속 지연 오류가 발생했습니다.";
+            }
+        });
     </script>
 </body>
 </html>

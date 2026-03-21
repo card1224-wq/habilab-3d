@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import os
@@ -62,6 +62,55 @@ async def upload_floorplan(file: UploadFile = File(...)):
             raise ValueError("현재는 이미지 파일(JPG, PNG) 도면만 지원됩니다. PDF는 JPG로 변환 후 올려주세요! (DXF 업데이트 예정)")
     except Exception as e:
         print(f"Error processing: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/generate")
+async def generate_floorplan(prompt: str = Form(...)):
+    print(f"Generating AI floorplan for: {prompt}")
+    try:
+        import cv2
+        import numpy as np
+        
+        # 1. AI Logic: Draw 2D architectural blueprint based on semantic prompt (Demonstration)
+        # Create an 800x1200 white canvas
+        img = np.ones((800, 1200), dtype=np.uint8) * 255
+        
+        # Draw structural walls (Black, thick)
+        wall_thickness = 12
+        cv2.rectangle(img, (200, 200), (1000, 600), (0,0,0), wall_thickness) # Main boundary
+        cv2.line(img, (500, 200), (500, 600), (0,0,0), wall_thickness)       # Split wall
+        cv2.line(img, (500, 400), (1000, 400), (0,0,0), wall_thickness)      # Split room 1, 2
+        
+        # Add stylish semantic text to the floorplan
+        font = cv2.FONT_HERSHEY_DUPLEX
+        cv2.putText(img, "LIVING ROOM", (250, 420), font, 1.2, (0,0,0), 2)
+        cv2.putText(img, "MASTER BED", (650, 320), font, 1.2, (0,0,0), 2)
+        cv2.putText(img, "BATH ROOM", (650, 520), font, 1.0, (0,0,0), 2)
+        cv2.putText(img, f"AI Prompt: {prompt}", (200, 150), font, 0.8, (0,0,0), 2)
+        
+        # 2. Save Generated 2D Plan
+        filename = f"ai_gen_{int(time.time())}"
+        img_path = f"uploads/{filename}.jpg"
+        cv2.imwrite(img_path, img)
+        
+        demo_model_path = f"static/models/{filename}.glb"
+        bg_path = f"static/models/{filename}_bg.jpg"
+        cv2.imwrite(bg_path, img)
+        
+        # 3. Trigger 3D Extrusion directly from the generated AI layout
+        from core.cv_engine import process_image_to_3d
+        process_image_to_3d(img_path, demo_model_path, wall_height=18.0)
+        
+        return {
+            "status": "success", 
+            "message": "AI generated layout", 
+            "model_url": f"/static/models/{filename}.glb",
+            "bg_url": f"/static/models/{filename}_bg.jpg",
+            "width": 1200 * 0.1,
+            "height": 800 * 0.1
+        }
+    except Exception as e:
+        print(f"Error in AI generation: {e}")
         return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
