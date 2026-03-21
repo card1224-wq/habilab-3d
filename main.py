@@ -38,16 +38,22 @@ async def upload_floorplan(file: UploadFile = File(...)):
         if ext in ['jpg', 'jpeg', 'png']:
             process_image_to_3d(file_path, demo_model_path, wall_height=15.0)
             
-            # Read image dimensions to map it as a floor texture in 3D
+            # Read image dimensions to map it as a floor texture in 3D (Robustly for Windows)
             import cv2
-            img = cv2.imread(file_path)
-            h, w = img.shape[:2]
-            sw, sh = w * 0.1, h * 0.1
+            import numpy as np
+            img_array = np.fromfile(file_path, np.uint8)
+            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            
+            if img is not None:
+                h, w = img.shape[:2]
+                sw, sh = w * 0.1, h * 0.1
+            else:
+                # Fallback if image reading fails
+                sw, sh = 100.0, 100.0
             
             # Copy uploaded image to static for frontend loading
             bg_filename = model_filename.replace('.glb', f'_bg.{ext}')
             bg_path = f"static/models/{bg_filename}"
-            import shutil
             shutil.copy(file_path, bg_path)
             
             return {
