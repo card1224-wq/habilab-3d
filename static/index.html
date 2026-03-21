@@ -58,7 +58,7 @@
     <!-- Top Navigation App Bar -->
     <nav class="sticky top-0 z-50 backdrop-blur-xl bg-[#09090b]/80 border-b border-white/5 w-full shadow-lg">
         <div class="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity" onclick="goHome()">
                 <div class="w-8 h-8 rounded bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white tracking-tighter shadow-[0_0_10px_rgba(99,102,241,0.5)]">HL</div>
                 <h1 class="text-xl font-medium tracking-wide text-white">HabiLab Studio <span class="text-xs text-indigo-400 ml-2 font-mono border border-indigo-400/30 px-2 py-0.5 rounded-full">PRO</span></h1>
             </div>
@@ -77,28 +77,34 @@
     <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[80vh]">
             <!-- Sidebar / Controls (col-span-3) -->
-            <div class="col-span-1 lg:col-span-3 bg-[#121214] p-6 rounded-2xl shadow-2xl flex flex-col border border-white/5 overflow-y-auto">
-                <h2 class="text-lg font-bold mb-4 text-white flex items-center gap-2"><svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> 1. 원본 도면 업로드</h2>
-                <div id="drop-zone" class="border border-dashed border-white/20 bg-[#18181b] rounded-xl p-6 text-center hover:bg-white/5 hover:border-indigo-500/50 transition-all cursor-pointer mb-6">
-                    <p class="text-gray-300 font-bold text-sm">여기에 평면도를 드롭하세요</p>
-                    <p class="text-xs text-gray-500 mt-1">PDF, DXF, PNG 지원</p>
-                </div>
-                <input type="file" id="file-input" class="hidden" accept=".pdf,.dxf,.png,.jpg,.jpeg">
+            <div class="col-span-1 lg:col-span-3 bg-[#121214] p-6 rounded-2xl shadow-2xl flex flex-col border border-white/5 overflow-y-auto max-h-[85vh]">
                 
-                <div class="border-t border-white/5 my-4"></div>
+                <!-- UPLOAD SECTION -->
+                <div id="upload-section">
+                    <h2 class="text-lg font-bold mb-4 text-white flex items-center gap-2"><svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> 1. 원본 도면 업로드</h2>
+                    <div id="drop-zone" class="border border-dashed border-white/20 bg-[#18181b] rounded-xl p-6 text-center hover:bg-white/5 hover:border-indigo-500/50 transition-all cursor-pointer mb-6">
+                        <p class="text-gray-300 font-bold text-sm">여기에 평면도를 드롭하세요</p>
+                        <p class="text-xs text-gray-500 mt-1">PDF, DXF, PNG 지원</p>
+                    </div>
+                    <input type="file" id="file-input" class="hidden" accept=".pdf,.dxf,.png,.jpg,.jpeg">
+                    <div class="border-t border-white/5 my-4"></div>
+                </div>
 
-                <h2 class="text-lg font-bold mb-3 text-white flex items-center gap-2"><svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg> 2. AI 설계 프롬프트</h2>
-                <p class="text-xs text-gray-400 mb-3">올린 도면을 대화로 수정하거나 완전히 새로 설계합니다.</p>
-                <textarea id="ai-prompt" class="w-full text-sm border border-white/10 rounded-xl p-4 focus:outline-none focus:border-indigo-500 bg-[#18181b] text-gray-300 placeholder-gray-600" rows="5" placeholder="예: '주방 옆에 통유리 창문을 추가해줘' 또는 '거실 1개 방 2개짜리 최신식 아파트 그려줘'"></textarea>
-                <button id="btn-generate" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-300 shadow-[0_0_15px_rgba(79,70,229,0.3)]">✨ AI 설계 & 3D 변환 시작</button>
+                <!-- PROMPT SECTION -->
+                <div id="prompt-section">
+                    <h2 id="prompt-title" class="text-lg font-bold mb-3 text-white flex items-center gap-2"><svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg> 2. AI 설계 프롬프트</h2>
+                    <p id="prompt-desc" class="text-xs text-gray-400 mb-3">올린 도면을 대화로 수정하거나 완전히 새로 설계합니다.</p>
+                    <textarea id="ai-prompt" class="w-full text-sm border border-white/10 rounded-xl p-4 focus:outline-none focus:border-indigo-500 bg-[#18181b] text-gray-300 placeholder-gray-600" rows="5" placeholder="예: '주방 옆에 통유리 창문을 추가해줘' 또는 '거실 1개 방 2개짜리 최신식 아파트 그려줘'"></textarea>
+                    <button id="btn-generate" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-300 shadow-[0_0_15px_rgba(79,70,229,0.3)]">✨ AI 설계 & 3D 변환 시작</button>
 
-                <div id="ai-status-box" class="hidden p-4 rounded-xl mt-4 font-medium text-center border transition-all text-sm"></div>
+                    <div id="ai-status-box" class="hidden p-4 rounded-xl mt-4 font-medium text-center border transition-all text-sm"></div>
+                </div>
             </div>
 
             <!-- 2D Viewer (col-span-4) -->
             <div class="col-span-1 lg:col-span-4 bg-[#121214] p-6 rounded-2xl shadow-2xl flex flex-col border border-white/5">
                 <div class="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-                    <h2 class="text-lg font-bold text-white tracking-wide">📐 2D 평면도 모니터</h2>
+                    <h2 id="2d-title" class="text-lg font-bold text-white tracking-wide">📐 2D 평면도 모니터</h2>
                 </div>
                 <div id="2d-viewer" class="flex-grow bg-[#09090b] border border-white/10 rounded-xl relative flex flex-col items-center justify-center p-2 min-h-[300px] overflow-hidden shadow-inner">
                     <img id="preview-img" src="" alt="도면 미리보기" class="w-full h-full object-contain hidden filter contrast-125 brightness-90 inset-0 absolute m-auto" />
@@ -133,16 +139,39 @@
             document.getElementById('landing-view').classList.add('hidden');
             document.getElementById('workspace-view').classList.remove('hidden');
             
+            // Dynamic Workflow Modes
+            if (mode === 'prompt') {
+                document.getElementById('upload-section').classList.add('hidden');
+                document.getElementById('prompt-title').innerHTML = `✨ AI 제너러티브 프롬프트`;
+                document.getElementById('prompt-desc').innerHTML = `오직 텍스트 묘사만으로 세상에 없던 공간 2D/3D를 동시에 창조합니다.`;
+                document.getElementById('2d-title').innerHTML = '📐 AI 생성 2D 평면도';
+                document.getElementById('2d-placeholder').innerHTML = 'AI가 설계한 평면도가<br/>이 곳에 투사됩니다.';
+            } else if (mode === 'upload') {
+                document.getElementById('upload-section').classList.remove('hidden');
+                document.getElementById('prompt-title').innerHTML = `<svg class="w-4 h-4 text-purple-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg> 2. AI 대화형 프롬프트`;
+                document.getElementById('prompt-desc').innerHTML = `올려주신 도면에 대화를 통해 세부적인 건축 수정을 지시할 수 있습니다.`;
+                document.getElementById('2d-title').innerHTML = '📐 원본 도면 미리보기 (2D)';
+                document.getElementById('2d-placeholder').innerHTML = '스튜디오에 업로드하신 2D 도면이<br/>이 곳에 투사됩니다.';
+                setTimeout(() => {
+                    const dropZone = document.getElementById('drop-zone');
+                    dropZone.classList.add('border-indigo-500', 'bg-indigo-500/10');
+                    setTimeout(() => dropZone.classList.remove('border-indigo-500', 'bg-indigo-500/10'), 2000);
+                }, 400);
+            }
+
             // Adjust ThreeJS container size slightly after rendering
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize'));
                 if (mode === 'prompt') {
                     document.getElementById('ai-prompt').focus();
-                } else if (mode === 'upload') {
-                    document.getElementById('drop-zone').classList.add('bg-white/5', 'border-indigo-500/50');
-                    setTimeout(() => document.getElementById('drop-zone').classList.remove('bg-white/5', 'border-indigo-500/50'), 1500);
                 }
             }, 100);
+        }
+
+        // Return to Landing Page
+        function goHome() {
+            document.getElementById('workspace-view').classList.add('hidden');
+            document.getElementById('landing-view').classList.remove('hidden');
         }
 
         // Setup Scene
