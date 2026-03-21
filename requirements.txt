@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-multipart
+trimesh
+shapely
+opencv-python-headless
+numpy
+ezdxf
+pdf2image
+mapbox-earcut
