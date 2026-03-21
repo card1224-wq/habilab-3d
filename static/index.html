@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>하비랩 (HabiLab) - 3D Floor Plan Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #viewer-container { width: 100%; height: 60vh; background-color: #f3f4f6; border-radius: 0.5rem; overflow: hidden; position: relative; }
+    </style>
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <header class="mb-8 text-center text-gray-800">
+            <h1 class="text-4xl font-extrabold text-blue-600 mb-2 tracking-tight">하비랩 (HabiLab) 3D 조감도 변환기</h1>
+            <p class="text-gray-500 font-medium">DWG/DXF, PDF, 이미지 도면을 업로드하면 자동으로 벽체를 인식하여 3D 모델로 만들어 드립니다.</p>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Sidebar / Upload Area -->
+            <div class="col-span-1 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 flex flex-col">
+                <h2 class="text-2xl font-bold mb-4 text-gray-700">도면 파일 업로드</h2>
+                <div id="drop-zone" class="border-4 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer mb-6 flex-grow flex flex-col justify-center">
+                    <svg class="mx-auto h-16 w-16 text-blue-400 mb-4 transition-transform hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="text-gray-700 font-bold text-lg">클릭하거나 평면도를 <br/>드래그 앤 드롭 하세요</p>
+                    <p class="text-sm text-gray-400 mt-2">지원: PDF, DXF, PNG, JPG</p>
+                </div>
+                <input type="file" id="file-input" class="hidden" accept=".pdf,.dxf,.png,.jpg,.jpeg">
+                
+                <div id="status-box" class="hidden p-4 rounded-xl mb-2 font-medium text-center shadow-inner transition-all">
+                    <!-- Status message injected here -->
+                </div>
+                
+                <div id="image-preview" class="hidden mt-4 border border-gray-100 rounded-xl overflow-hidden shadow-sm flex flex-col items-center">
+                    <h3 class="bg-gray-50 w-full p-2 text-xs text-center font-bold text-gray-500 uppercase tracking-wide border-b border-gray-100">원본 도면 미리보기</h3>
+                    <img id="preview-img" src="" alt="도면 미리보기" class="w-full h-auto max-h-48 object-contain p-2 bg-white" />
+                </div>
+            </div>
+
+            <!-- 3D Viewer Area -->
+            <div class="col-span-1 md:col-span-2 bg-white p-6 rounded-2xl shadow-xl flex flex-col border border-gray-100">
+                <div class="flex justify-between items-center border-b border-gray-100 pb-4 mb-4">
+                    <h2 class="text-2xl font-bold text-gray-700">3D View</h2>
+                    <span class="px-3 py-1 bg-green-100 text-green-700 font-bold rounded-full text-sm shadow-sm hidden" id="badge-success">Rendering Ready</span>
+                </div>
+                <div id="viewer-container" class="rounded-xl ring-1 ring-gray-200 shadow-inner flex-grow">
+                    <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none p-4 text-center">
+                        <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+                        <p class="text-lg">결과물이 이 공간에 나타납니다.<br/>마우스로 화면을 드래그해 뷰를 회전시킬 수 있습니다.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // Setup Scene
+        const container = document.getElementById('viewer-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf8fafc); // Lighter background
+        scene.fog = new THREE.FogExp2(0xf8fafc, 0.005);
+        
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(40, 50, 60);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05; // don't go below ground
+
+        const textureLoader = new THREE.TextureLoader();
+        
+        // Load Wood Texture for Floor
+        const floorTexture = textureLoader.load('https://threejs.org/examples/textures/hardwood2_diffuse.jpg');
+        floorTexture.wrapS = THREE.RepeatWrapping;
+        floorTexture.wrapT = THREE.RepeatWrapping;
+        floorTexture.repeat.set(10, 10);
+        floorTexture.colorSpace = THREE.SRGBColorSpace;
+
+        // Premium Grid & Floor
+        const gridHelper = new THREE.GridHelper(100, 100, 0xd4d4d8, 0xe4e4e7);
+        gridHelper.position.y = -0.01;
+        scene.add(gridHelper);
+
+        const floorGeo = new THREE.PlaneGeometry(200, 200);
+        const floorMat = new THREE.MeshStandardMaterial({ 
+            map: floorTexture, 
+            roughness: 0.6, 
+            metalness: 0.1 
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        floor.position.y = -0.1;
+        scene.add(floor);
+
+        // Pre-load Brick Texture for Walls
+        const brickTexture = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
+        brickTexture.wrapS = THREE.RepeatWrapping;
+        brickTexture.wrapT = THREE.RepeatWrapping;
+        brickTexture.repeat.set(0.1, 0.1);
+        brickTexture.colorSpace = THREE.SRGBColorSpace;
+        
+        const brickBump = textureLoader.load('https://threejs.org/examples/textures/brick_bump.jpg');
+        brickBump.wrapS = THREE.RepeatWrapping;
+        brickBump.wrapT = THREE.RepeatWrapping;
+        brickBump.repeat.set(0.1, 0.1);
+
+        // Lights
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+        hemiLight.position.set(0, 50, 0);
+        scene.add(hemiLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(30, 80, 40);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 4096;
+        dirLight.shadow.mapSize.height = 4096;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 200;
+        dirLight.shadow.camera.left = -50;
+        dirLight.shadow.camera.right = 50;
+        dirLight.shadow.camera.top = 50;
+        dirLight.shadow.camera.bottom = -50;
+        dirLight.shadow.bias = -0.0005;
+        scene.add(dirLight);
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            if(container.clientWidth === 0) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Load Model function
+        function loadModel(url) {
+            const loader = new GLTFLoader();
+            loader.load(url, (gltf) => {
+                // Remove previous models
+                const objectsToRemove = [];
+                scene.children.forEach(child => {
+                    if(child.isGroup || (child.isMesh && child !== gridHelper)) objectsToRemove.push(child);
+                });
+                objectsToRemove.forEach(obj => scene.remove(obj));
+                
+                const model = gltf.scene;
+                
+                // Set shadow and material properties
+                model.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+
+                        // Auto-generate UV coordinates if missing (so textures can wrap)
+                        if (!node.geometry.attributes.uv) {
+                            const pos = node.geometry.attributes.position;
+                            const uvs = new Float32Array(pos.count * 2);
+                            for (let i = 0; i < pos.count; i++) {
+                                let x = pos.getX(i);
+                                let y = pos.getY(i);
+                                let z = pos.getZ(i);
+                                uvs[i*2] = x * 0.2 + z * 0.2; 
+                                uvs[i*2+1] = y * 0.2;
+                            }
+                            node.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+                        }
+
+                        // Apply Brick Wall Texture Material
+                        node.material = new THREE.MeshStandardMaterial({
+                            map: brickTexture,
+                            bumpMap: brickBump,
+                            bumpScale: 0.8,
+                            roughness: 0.7,
+                            metalness: 0.1,
+                            side: THREE.DoubleSide
+                        });
+                        node.geometry.computeVertexNormals(); // Make rendering smoother
+                    }
+                });
+
+                // Center model
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                model.position.sub(center);
+                
+                // Adjust floor/grid helper to match botom block
+                gridHelper.position.y = box.min.y - center.y - 0.1;
+                
+                scene.add(model);
+                document.getElementById('placeholder').classList.add('hidden');
+                document.getElementById('badge-success').classList.remove('hidden');
+
+                // Adjust camera distance safely
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = camera.fov * (Math.PI / 180);
+                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+                cameraZ = cameraZ * 1.4; // padding
+                if (!isFinite(cameraZ) || cameraZ < 1) cameraZ = 30;
+                camera.position.set(cameraZ, cameraZ * 0.8, cameraZ * 1.2);
+                controls.target.set(0, 0, 0);
+                controls.update();
+
+            }, undefined, (error) => {
+                console.error(error);
+                alert("3D 모델을 불러오는 중 오류가 발생했습니다.");
+            });
+        }
+
+        // Upload Logic
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const statusBox = document.getElementById('status-box');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-blue-50', 'border-blue-400'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-blue-50', 'border-blue-400'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('bg-blue-50', 'border-blue-400');
+            if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files[0]);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleUpload(e.target.files[0]);
+        });
+
+        async function handleUpload(file) {
+            statusBox.classList.remove('hidden');
+            statusBox.className = "p-4 rounded-xl mb-2 font-medium text-center shadow-inner transition-all bg-blue-100 text-blue-800 animate-pulse";
+            statusBox.innerHTML = `도면 분석 및 3D 모델링 중입니다... <br/><span class="text-sm font-normal">파일: ${file.name}</span>`;
+            document.getElementById('badge-success').classList.add('hidden');
+            
+            // Show image preview
+            const previewContainer = document.getElementById('image-preview');
+            const previewImg = document.getElementById('preview-img');
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    previewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewContainer.classList.add('hidden');
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    statusBox.className = "p-4 rounded-xl mb-2 font-medium text-center bg-green-100 text-green-800 border border-green-200";
+                    statusBox.textContent = "변환 완료! 3D 뷰어에 렌더링 됩니다.";
+                    if(data.model_url) loadModel(data.model_url);
+                } else {
+                    statusBox.className = "p-4 rounded-xl mb-2 font-medium text-center bg-red-100 text-red-800 border border-red-200";
+                    statusBox.textContent = "변환 실패: " + data.message;
+                }
+            } catch (error) {
+                console.error(error);
+                statusBox.className = "p-4 rounded-xl mb-2 font-medium text-center bg-red-100 text-red-800 border border-red-200";
+                statusBox.textContent = "서버와의 통신 오류가 발생했습니다.";
+            }
+        }
+    </script>
+</body>
+</html>
