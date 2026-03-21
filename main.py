@@ -37,10 +37,29 @@ async def upload_floorplan(file: UploadFile = File(...)):
         ext = file.filename.split('.')[-1].lower()
         if ext in ['jpg', 'jpeg', 'png']:
             process_image_to_3d(file_path, demo_model_path, wall_height=15.0)
+            
+            # Read image dimensions to map it as a floor texture in 3D
+            import cv2
+            img = cv2.imread(file_path)
+            h, w = img.shape[:2]
+            sw, sh = w * 0.1, h * 0.1
+            
+            # Copy uploaded image to static for frontend loading
+            bg_filename = model_filename.replace('.glb', f'_bg.{ext}')
+            bg_path = f"static/models/{bg_filename}"
+            import shutil
+            shutil.copy(file_path, bg_path)
+            
+            return {
+                "status": "success", 
+                "message": f"Uploaded {file.filename}", 
+                "model_url": f"/static/models/{model_filename}",
+                "bg_url": f"/static/models/{bg_filename}",
+                "width": sw,
+                "height": sh
+            }
         else:
             raise ValueError("현재는 이미지 파일(JPG, PNG) 도면만 지원됩니다. PDF는 JPG로 변환 후 올려주세요! (DXF 업데이트 예정)")
-            
-        return {"status": "success", "message": f"Uploaded {file.filename}", "model_url": f"/static/models/{model_filename}"}
     except Exception as e:
         print(f"Error processing: {e}")
         return {"status": "error", "message": str(e)}

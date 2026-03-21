@@ -102,6 +102,7 @@
         // Premium Grid & Floor
         const gridHelper = new THREE.GridHelper(100, 100, 0xd4d4d8, 0xe4e4e7);
         gridHelper.position.y = -0.01;
+        gridHelper.name = 'EnvCore';
         scene.add(gridHelper);
 
         const floorGeo = new THREE.PlaneGeometry(200, 200);
@@ -114,6 +115,7 @@
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         floor.position.y = -0.1;
+        floor.name = 'EnvCore';
         scene.add(floor);
 
         // Pre-load Brick Texture for Walls
@@ -164,15 +166,28 @@
         animate();
 
         // Load Model function
-        function loadModel(url) {
+        function loadModel(url, bg_url="", bg_w=0, bg_h=0) {
             const loader = new GLTFLoader();
             loader.load(url, (gltf) => {
                 // Remove previous models
                 const objectsToRemove = [];
                 scene.children.forEach(child => {
-                    if(child.isGroup || (child.isMesh && child !== gridHelper)) objectsToRemove.push(child);
+                    if((child.isGroup || child.isMesh) && child.name !== 'EnvCore') objectsToRemove.push(child);
                 });
                 objectsToRemove.forEach(obj => scene.remove(obj));
+                
+                // Add 2D Blueprint background mapped on the floor
+                if (bg_url && bg_w && bg_h) {
+                    const bgTexture = new THREE.TextureLoader().load(bg_url);
+                    bgTexture.colorSpace = THREE.SRGBColorSpace;
+                    const bgGeo = new THREE.PlaneGeometry(bg_w, bg_h);
+                    const bgMat = new THREE.MeshStandardMaterial({ map: bgTexture, roughness: 0.8, side: THREE.DoubleSide });
+                    const bgMesh = new THREE.Mesh(bgGeo, bgMat);
+                    bgMesh.rotation.x = -Math.PI / 2;
+                    bgMesh.position.y = 0.05; // slightly above wood floor
+                    bgMesh.receiveShadow = true;
+                    scene.add(bgMesh);
+                }
                 
                 const model = gltf.scene;
                 
@@ -286,7 +301,7 @@
                 if (data.status === 'success') {
                     statusBox.className = "p-4 rounded-xl mb-2 font-medium text-center bg-green-100 text-green-800 border border-green-200";
                     statusBox.textContent = "변환 완료! 3D 뷰어에 렌더링 됩니다.";
-                    if(data.model_url) loadModel(data.model_url);
+                    if(data.model_url) loadModel(data.model_url, data.bg_url, data.width, data.height);
                 } else {
                     statusBox.className = "p-4 rounded-xl mb-2 font-medium text-center bg-red-100 text-red-800 border border-red-200";
                     statusBox.textContent = "변환 실패: " + data.message;

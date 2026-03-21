@@ -11,20 +11,22 @@ def process_image_to_3d(image_path: str, output_glb_path: str, wall_height: floa
         raise ValueError(f"Could not read image file {image_path}")
     
     # 1. Binarization (Assume white background, black lines)
-    # Threshold: anything darker than 200 becomes white (255), rest becomes black (0)
-    # This isolates the dark wall lines.
     _, thresh = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)
     
-    # 2. Morphological Closing to connect broken lines
-    kernel = np.ones((5, 5), np.uint8)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    # 2. Advanced AI Filtering for Architectural Walls
+    # (a) Opening: Erase small thin noise, text, and furniture vectors
+    kernel_open = np.ones((5, 5), np.uint8)
+    clean = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel_open)
     
-    # Dilate to make walls thicker
-    kernel_dilate = np.ones((3, 3), np.uint8)
-    thresh = cv2.dilate(thresh, kernel_dilate, iterations=1)
+    # (b) Closing & Dilation: Fuse chunky structural walls into solid rigid blocks
+    kernel_close = np.ones((25, 25), np.uint8)
+    solid = cv2.morphologyEx(clean, cv2.MORPH_CLOSE, kernel_close)
     
-    # 3. Find Contours
-    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    kernel_dilate = np.ones((8, 8), np.uint8)
+    solid = cv2.dilate(solid, kernel_dilate, iterations=1)
+    
+    # 3. Find structural Contours
+    contours, hierarchy = cv2.findContours(solid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     meshes = []
     
@@ -34,11 +36,11 @@ def process_image_to_3d(image_path: str, output_glb_path: str, wall_height: floa
     
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 50:  # Ignore tiny artifacts
+        if area < 1500:  # Ignore completely non-structural floating noise
             continue
             
-        # Simplify contour
-        epsilon = 0.005 * cv2.arcLength(cnt, True)
+        # Very aggressive smoothing for sharp, straight horizontal/vertical architectural look
+        epsilon = 0.02 * cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, epsilon, True)
         
         if len(approx) < 3:
