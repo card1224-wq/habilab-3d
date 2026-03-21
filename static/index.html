@@ -7,6 +7,36 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         #viewer-container { width: 100%; height: 60vh; background-color: #f3f4f6; border-radius: 0.5rem; overflow: hidden; position: relative; }
+        
+        /* Loading Spinner Animation */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(9, 9, 11, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 40;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .loading-overlay.active {
+            display: flex;
+        }
     </style>
     <!-- Import Map for Three.js -->
     <script type="importmap">
@@ -109,6 +139,12 @@
                 <div id="2d-viewer" class="flex-grow bg-[#09090b] border border-white/10 rounded-xl relative flex flex-col items-center justify-center p-2 min-h-[300px] overflow-hidden shadow-inner">
                     <img id="preview-img" src="" alt="도면 미리보기" class="w-full h-full object-contain hidden filter contrast-125 brightness-90 inset-0 absolute m-auto" />
                     <p id="2d-placeholder" class="text-gray-600 text-center text-sm">원본 도면이나 AI 생성 도면이<br/>이곳에 투사됩니다.</p>
+                    
+                    <!-- 2D Loading Overlay -->
+                    <div id="2d-loading" class="loading-overlay">
+                        <div class="spinner mb-4"></div>
+                        <p class="text-indigo-400 font-bold text-sm tracking-widest animate-pulse">ANALYZING BLUEPRINT...</p>
+                    </div>
                 </div>
             </div>
 
@@ -122,6 +158,12 @@
                     <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-600 pointer-events-none p-4 text-center">
                         <svg class="w-12 h-12 mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
                         <p class="text-sm">2D 평면도가 준비되면<br/>이곳에 3D 건축 모형이 투사됩니다.</p>
+                    </div>
+
+                    <!-- 3D Loading Overlay -->
+                    <div id="3d-loading" class="loading-overlay">
+                        <div class="spinner mb-4"></div>
+                        <p class="text-indigo-400 font-bold text-sm tracking-widest animate-pulse">GENERATING 3D SPACE...</p>
                     </div>
                 </div>
             </div>
@@ -379,6 +421,16 @@
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) handleUpload(e.target.files[0]);
         });
+        
+        function showLoading() {
+            document.getElementById('2d-loading').classList.add('active');
+            document.getElementById('3d-loading').classList.add('active');
+        }
+        
+        function hideLoading() {
+            document.getElementById('2d-loading').classList.remove('active');
+            document.getElementById('3d-loading').classList.remove('active');
+        }
 
         async function handleUpload(file) {
             aiStatusBox.classList.remove('hidden');
@@ -402,6 +454,7 @@
             formData.append('file', file);
             
             try {
+                showLoading(); // Show loading overlay
                 const response = await fetch('/upload', { method: 'POST', body: formData });
                 const data = await response.json();
                 
@@ -421,6 +474,8 @@
                 console.error(error);
                 aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-500/20 text-red-300 border border-red-500/30 mt-4";
                 aiStatusBox.textContent = "서버와의 통신 오류가 발생했습니다.";
+            } finally {
+                hideLoading(); // Always hide loading overlay at the end
             }
         }
 
@@ -441,6 +496,7 @@
             formData.append('prompt', text);
             
             try {
+                showLoading(); // Show loading overlay
                 const response = await fetch('/generate', { method: 'POST', body: formData });
                 const data = await response.json();
                 
@@ -463,8 +519,66 @@
                 console.error(error);
                 aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-500/20 text-red-300 border border-red-500/30 mt-4";
                 aiStatusBox.textContent = "서버 접속 지연 오류가 발생했습니다.";
+            } finally {
+                hideLoading(); // Always hide loading overlay
             }
         });
     </script>
+    <style>
+        /* Spinner CSS */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Loading Overlay CSS */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.2rem;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loading-overlay p {
+            margin-top: 15px;
+        }
+    </style>
+
+    <!-- Loading Overlays -->
+    <div id="2d-loading" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>2D 도면 생성 중...</p>
+    </div>
+    <div id="3d-loading" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>3D 모델링 생성 중...</p>
+    </div>
 </body>
 </html>
+```
