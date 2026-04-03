@@ -77,22 +77,36 @@ async def generate_floorplan(prompt: str = Form(...)):
         import cv2
         import numpy as np
         
-        # 1. AI Logic: Draw 2D architectural blueprint based on semantic prompt (Demonstration)
-        # Create an 800x1200 white canvas
-        img = np.ones((800, 1200), dtype=np.uint8) * 255
-        
-        # Draw structural walls (Black, thick)
-        wall_thickness = 12
-        cv2.rectangle(img, (200, 200), (1000, 600), (0,0,0), wall_thickness) # Main boundary
-        cv2.line(img, (500, 200), (500, 600), (0,0,0), wall_thickness)       # Split wall
-        cv2.line(img, (500, 400), (1000, 400), (0,0,0), wall_thickness)      # Split room 1, 2
-        
-        # Add stylish semantic text to the floorplan
+        # 1. Advanced Layout Logic based on Prompt
+        img = np.ones((1000, 1500), dtype=np.uint8) * 255
+        wall_thickness = 15
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(img, "LIVING ROOM", (250, 420), font, 1.2, (0,0,0), 2)
-        cv2.putText(img, "MASTER BED", (650, 320), font, 1.2, (0,0,0), 2)
-        cv2.putText(img, "BATH ROOM", (650, 520), font, 1.0, (0,0,0), 2)
-        cv2.putText(img, f"AI Prompt: {prompt}", (200, 150), font, 0.8, (0,0,0), 2)
+        
+        # Draw Main Boundary
+        cv2.rectangle(img, (100, 100), (1400, 900), (0,0,0), wall_thickness)
+        
+        # Heuristic: Split rooms based on keywords
+        if "거실" in prompt or "living" in prompt.lower():
+            cv2.line(img, (600, 100), (600, 900), (0,0,0), wall_thickness) # Main divider
+            cv2.putText(img, "LIVING ROOM", (150, 500), font, 1.5, (0,0,0), 3)
+            
+            if "방" in prompt or "room" in prompt.lower():
+                 cv2.line(img, (600, 500), (1400, 500), (0,0,0), wall_thickness) # Horizontal split
+                 cv2.putText(img, "MASTER BED", (800, 300), font, 1.2, (0,0,0), 2)
+                 cv2.putText(img, "GUEST ROOM", (800, 750), font, 1.2, (0,0,0), 2)
+            else:
+                 cv2.putText(img, "OPEN BALCONY", (800, 500), font, 1.2, (0,0,0), 2)
+        else:
+            # Default Studio Layout
+            cv2.line(img, (750, 100), (750, 900), (0,0,0), wall_thickness)
+            cv2.putText(img, "STUDIO A", (250, 500), font, 1.5, (0,0,0), 3)
+            cv2.putText(img, "STUDIO B", (950, 500), font, 1.5, (0,0,0), 3)
+
+        if "주방" in prompt or "kitchen" in prompt.lower():
+            cv2.rectangle(img, (100, 100), (400, 300), (0,0,0), wall_thickness)
+            cv2.putText(img, "KITCHEN", (150, 200), font, 1.0, (0,0,0), 2)
+
+        cv2.putText(img, f"AI DESIGNED FOR: {prompt[:30]}...", (100, 60), font, 1.0, (50,50,50), 2)
         
         # 2. Save Generated 2D Plan
         filename = f"ai_gen_{int(time.time())}"
@@ -103,17 +117,17 @@ async def generate_floorplan(prompt: str = Form(...)):
         bg_path = f"static/models/{filename}_bg.jpg"
         cv2.imwrite(bg_path, img)
         
-        # 3. Trigger 3D Extrusion directly from the generated AI layout
         from core.cv_engine import process_image_to_3d
-        process_image_to_3d(img_path, demo_model_path, wall_height=18.0)
+        # Nano Banana level extrusion: higher walls for premium feel
+        process_image_to_3d(img_path, demo_model_path, wall_height=25.0)
         
         return {
             "status": "success", 
-            "message": "AI generated layout", 
+            "message": "AI premium layout generated", 
             "model_url": f"/static/models/{filename}.glb",
             "bg_url": f"/static/models/{filename}_bg.jpg",
-            "width": 1200 * 0.1,
-            "height": 800 * 0.1
+            "width": 1500 * 0.1,
+            "height": 1000 * 0.1
         }
     except Exception as e:
         print(f"Error in AI generation: {e}")

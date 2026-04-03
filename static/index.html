@@ -3,525 +3,447 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>하비랩 (HabiLab) - 3D Floor Plan Generator</title>
+    <title>하비랩 (HabiLab) - 3D Floor Plan Generator (Nano Banana Edition)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        #viewer-container { width: 100%; height: 60vh; background-color: #f3f4f6; border-radius: 0.5rem; overflow: hidden; position: relative; }
-        
-        /* Loading Spinner Animation */
-        .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top: 3px solid #6366f1;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+        :root {
+            --accent-indigo: #6366f1;
+            --accent-purple: #8b5cf6;
+            --bg-dark: #09090b;
+            --card-gray: #121214;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+
+        body { font-family: 'Outfit', sans-serif; background-color: var(--bg-dark); color: #d1d5db; margin: 0; overflow: hidden; }
         
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
         .loading-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(9, 9, 11, 0.8);
-            backdrop-filter: blur(4px);
-            z-index: 40;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
+            position: absolute; inset: 0; background: rgba(9, 9, 11, 0.95);
+            backdrop-filter: blur(20px); z-index: 1000;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s; opacity: 0;
         }
-        .loading-overlay.active {
-            display: flex;
+        .loading-overlay.active { display: flex; opacity: 1; }
+        
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.05);
+            border-top: 2px solid var(--accent-indigo);
+            border-radius: 50%; width: 60px; height: 60px;
+            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        #viewer-container { width: 100%; height: 100%; position: relative; }
+        
+        /* Premium Buttons */
+        .btn-premium {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 600;
+            transition: all 0.3s; backdrop-filter: blur(8px);
+        }
+        .btn-premium:hover { background: rgba(255,255,255,0.1); border-color: var(--accent-indigo); transform: translateY(-2px); }
+        .btn-primary { background: var(--accent-indigo); border: none; box-shadow: 0 10px 20px rgba(99,102,241,0.3); }
+        .btn-primary:hover { background: #4f46e5; box-shadow: 0 15px 30px rgba(99,102,241,0.5); }
+
+        /* Instruction Overlay */
+        #walk-instructions {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: white; padding: 15px 25px;
+            border-radius: 50px; font-size: 13px; font-weight: 600; letter-spacing: 1px;
+            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            display: none; z-index: 500;
         }
     </style>
-    <!-- Import Map for Three.js -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
 </head>
-<body class="bg-[#09090b] min-h-screen text-gray-300 font-sans selection:bg-indigo-500/30 overflow-x-hidden">
+<body>
     
-    <!-- LANDING VIEW: Space UI -->
-    <div id="landing-view" class="relative w-full min-h-screen flex flex-col items-center justify-center overflow-hidden">
-        <!-- Cosmic/Mysterious Background Orbs -->
-        <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#040405] to-black"></div>
-        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-        <div class="absolute top-[20%] right-[30%] w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-        
+    <!-- LANDING VIEW -->
+    <div id="landing-view" class="fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-1000">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-950/40 via-[#050507] to-black"></div>
         <div class="relative z-10 text-center max-w-5xl px-6">
-            <div class="w-16 h-16 mx-auto rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white text-2xl tracking-tighter shadow-[0_0_30px_rgba(99,102,241,0.5)] mb-8">HL</div>
-            <h1 class="text-4xl md:text-6xl lg:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-100 to-gray-500 tracking-tight mb-6 leading-tight whitespace-nowrap">차원을 넘어서 공간설계의 시작</h1>
-            <p class="text-lg md:text-xl text-gray-400 mb-16 font-light max-w-2xl mx-auto">우주의 신비를 담은 압도적인 몰입감. 단 한 장의 도면이나 한 줄의 텍스트로 세상에 없던 하이엔드 3D 건축 모형을 지금 바로 소환하세요.</p>
+            <div class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white text-3xl mb-12 shadow-2xl scale-110">HL</div>
+            <h1 class="text-6xl md:text-8xl font-black text-white tracking-tighter mb-8 leading-[0.9]">상상을 공간으로 소환하는<br/><span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">압도적 3D 건축 스튜디오</span></h1>
+            <p class="text-xl md:text-2xl text-gray-400 mb-16 max-w-3xl mx-auto font-light leading-relaxed">
+                도면 한 장으로 만나는 프리미엄 3D 공간 프로젝트.<br/>
+                <span class="text-white font-medium">HabiLab Studio에서 당신의 상상을 소환하세요.</span>
+            </p>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                <!-- Menu 1 -->
-                <button onclick="enterWorkspace('upload')" class="group relative p-10 rounded-3xl backdrop-blur-md bg-white/5 border border-white/10 hover:border-indigo-500/50 hover:bg-white/10 transition-all duration-300 text-left overflow-hidden shadow-2xl">
-                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <svg class="w-12 h-12 text-indigo-400 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <button onclick="enterWorkspace('upload')" class="group p-12 rounded-[2.5rem] glass-panel hover:border-indigo-500/50 hover:bg-white/5 transition-all text-left">
+                    <div class="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-6 text-indigo-400 group-hover:scale-110 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></svg>
+                    </div>
                     <h3 class="text-2xl font-bold text-white mb-3">도면 변환 스튜디오</h3>
-                    <p class="text-sm text-gray-400 leading-relaxed">PDF, 이미지 방식의 구형 도면을 업로드하여 곧바로 스케일감 있는 3D 하이엔드 투시도로 세워 올립니다.</p>
+                    <p class="text-sm text-gray-400 leading-relaxed">평면도(2D)를 고해상도 입체 모델(3D)로 즉각 구현하며, 주변 부지 맥락까지 연출합니다.</p>
                 </button>
-                
-                <!-- Menu 2 -->
-                <button onclick="enterWorkspace('prompt')" class="group relative p-10 rounded-3xl backdrop-blur-md bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all duration-300 text-left overflow-hidden shadow-2xl">
-                    <div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <svg class="w-12 h-12 text-purple-400 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                <button onclick="enterWorkspace('prompt')" class="group p-12 rounded-[2.5rem] glass-panel hover:border-purple-500/50 hover:bg-white/5 transition-all text-left">
+                     <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-6 text-purple-400 group-hover:scale-110 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></svg>
+                    </div>
                     <h3 class="text-2xl font-bold text-white mb-3">제너러티브 AI 설계</h3>
-                    <p class="text-sm text-gray-400 leading-relaxed">단 한 줄의 텍스트 묘사만으로도 당신의 상상 속에만 있던 평면도와 입체 3D 공간을 실시간으로 창조합니다.</p>
+                    <p class="text-sm text-gray-400 leading-relaxed">단락의 묘사만으로 세상에 없던 창의적인 건축 공간을 실시간으로 설계하고 투어합니다.</p>
                 </button>
             </div>
         </div>
     </div>
 
     <!-- WORKSPACE VIEW -->
-    <div id="workspace-view" class="hidden min-h-screen flex flex-col">
-    <!-- Top Navigation App Bar -->
-    <nav class="sticky top-0 z-50 backdrop-blur-xl bg-[#09090b]/80 border-b border-white/5 w-full shadow-lg">
-        <div class="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity" onclick="goHome()">
-                <div class="w-8 h-8 rounded bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white tracking-tighter shadow-[0_0_10px_rgba(99,102,241,0.5)]">HL</div>
-                <h1 class="text-xl font-medium tracking-wide text-white">HabiLab Studio <span class="text-xs text-indigo-400 ml-2 font-mono border border-indigo-400/30 px-2 py-0.5 rounded-full">PRO</span></h1>
+    <div id="workspace-view" class="hidden min-h-screen flex flex-col opacity-0 transition-all duration-700">
+        <nav class="sticky top-0 z-50 backdrop-blur-2xl bg-black/40 border-b border-white/5 h-20 flex items-center px-10 justify-between">
+            <div class="flex items-center gap-4 cursor-pointer group" onclick="goHome()">
+                <div class="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-sm font-bold text-white shadow-lg group-hover:rotate-12 transition-transform">HL</div>
+                <span class="font-extrabold text-white tracking-widest text-base uppercase">HabiLab Studio <span class="text-indigo-400 ml-1">PRO</span></span>
             </div>
-            <div class="hidden md:flex gap-8 text-sm font-medium text-gray-400">
-                <a href="#" class="text-white border-b-2 border-indigo-500 py-5">Workspace (2D⇄3D)</a>
-                <a href="#" class="hover:text-white transition">My Projects</a>
-                <a href="#" class="hover:text-white transition">Materials Library</a>
-                <a href="#" class="hover:text-white transition flex items-center gap-1 text-yellow-500/80">Admin <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg></a>
+            <div id="nav-address" class="hidden md:flex items-center gap-3 px-6 py-2 bg-white/5 border border-white/10 rounded-full text-xs font-medium text-gray-400">
+                <svg class="w-3.5 h-3.5 text-indigo-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></svg>
+                <span id="display-address">Site Location Not Set</span>
             </div>
-            <div>
-                <button class="text-xs font-bold px-4 py-2 bg-indigo-600/20 text-indigo-400 border border-indigo-500/50 rounded-lg hover:bg-indigo-600 hover:text-white transition">Save & Export</button>
+            <div class="flex gap-4">
+                 <button onclick="toggleWalkMode()" id="btn-walk" class="btn-premium flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></svg>
+                    Enter Building (체험하기)
+                </button>
+                <button class="btn-premium btn-primary">Export Production</button>
             </div>
-        </div>
-    </nav>
+        </nav>
 
-    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[80vh]">
-            <!-- Sidebar / Controls (col-span-3) -->
-            <div class="col-span-1 lg:col-span-3 bg-[#121214] p-6 rounded-2xl shadow-2xl flex flex-col border border-white/5 overflow-y-auto max-h-[85vh]">
-                
-                <!-- UPLOAD SECTION -->
+        <main class="flex-grow grid grid-cols-12 overflow-hidden h-[calc(100vh-5rem)]">
+            <!-- Left: Side Control (col-span-3) -->
+            <div class="col-span-1 lg:col-span-3 border-r border-white/5 p-8 flex flex-col gap-10 bg-[#0c0c0e] overflow-y-auto">
                 <div id="upload-section">
-                    <h2 class="text-lg font-bold mb-4 text-white flex items-center gap-2"><svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> 📋 도면 데이터 등록</h2>
-                    <div id="drop-zone" class="border border-dashed border-white/20 bg-[#18181b] rounded-xl p-6 text-center hover:bg-white/5 hover:border-indigo-500/50 transition-all cursor-pointer mb-6 transform active:scale-95 transition-transform">
-                        <p class="text-gray-300 font-bold text-sm">원본 도면 파일을 이곳에 등록</p>
-                        <p class="text-xs text-gray-500 mt-1">PDF, DXF, PNG, JPG 지원</p>
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <span class="w-1 h-3 bg-indigo-500 rounded-full"></span> Architecture Asset
+                    </h2>
+                    <div id="drop-zone" class="border-2 border-dashed border-white/5 rounded-3xl p-10 text-center hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer group">
+                        <div class="w-12 h-12 bg-white/5 rounded-2xl mx-auto mb-4 flex items-center justify-center text-gray-500 group-hover:text-indigo-400 transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></svg>
+                        </div>
+                        <p class="text-xs text-gray-400 font-medium">부지 도면을 업로드하거나 드래그하세요</p>
+                        <p class="text-[10px] text-gray-600 mt-2">PNG, JPG, PDF 지원</p>
                     </div>
-                    <input type="file" id="file-input" class="hidden" accept=".pdf,.dxf,.png,.jpg,.jpeg">
-                    <div class="border-t border-white/5 my-4"></div>
-                </div>
-
-                <!-- PROMPT SECTION -->
-                <div id="prompt-section">
-                    <h2 id="prompt-title" class="text-lg font-bold mb-3 text-white flex items-center gap-2"><svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg> ✨ AI 공간 튜닝 프롬프트</h2>
-                    <p id="prompt-desc" class="text-xs text-gray-400 mb-3">설계된 결과물을 대화로 수정하거나 새로운 공간을 즉시 생성합니다.</p>
-                    <textarea id="ai-prompt" class="w-full text-sm border border-white/10 rounded-xl p-4 focus:outline-none focus:border-indigo-500 bg-[#18181b] text-gray-300 placeholder-gray-600 transition-all focus:ring-1 focus:ring-indigo-500/50" rows="5" placeholder="예: '주방 옆에 통유리 창문을 추가해줘' 또는 '거실 1개 방 2개짜리 최신식 아파트 그려줘'"></textarea>
-                    <button id="btn-generate" class="mt-4 w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-300 shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:scale-[1.02] active:scale-95">✨ AI 설계 & 3D 변환 시작</button>
-
-                    <div id="ai-status-box" class="hidden p-4 rounded-xl mt-4 font-medium text-center border transition-all text-sm"></div>
-                </div>
-            </div>
-
-            <!-- 2D Viewer (col-span-4) -->
-            <div class="col-span-1 lg:col-span-4 bg-[#121214] p-6 rounded-2xl shadow-2xl flex flex-col border border-white/5">
-                <div class="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-                    <h2 id="2d-title" class="text-lg font-bold text-white tracking-wide">📐 2D 평면도 모니터</h2>
-                </div>
-                <div id="2d-viewer" class="flex-grow bg-[#09090b] border border-white/10 rounded-xl relative flex flex-col items-center justify-center p-2 min-h-[300px] overflow-hidden shadow-inner">
-                    <img id="preview-img" src="" alt="도면 미리보기" class="w-full h-full object-contain hidden filter contrast-125 brightness-90 inset-0 absolute m-auto" />
-                    <p id="2d-placeholder" class="text-gray-600 text-center text-sm">원본 도면이나 AI 생성 도면이<br/>이곳에 투사됩니다.</p>
+                    <input type="file" id="file-input" class="hidden">
                     
-                    <!-- 2D Loading Overlay -->
-                    <div id="2d-loading" class="loading-overlay">
-                        <div class="spinner mb-4"></div>
-                        <p class="text-indigo-400 font-bold text-sm tracking-widest animate-pulse">ANALYZING BLUEPRINT...</p>
+                    <div class="mt-8">
+                        <label class="text-[10px] font-bold text-gray-600 uppercase tracking-[0.2em] mb-2 block">Site Address (부지 주소)</label>
+                        <input type="text" id="site-address" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-300 focus:outline-none focus:border-indigo-500/50" placeholder="예: 서울시 강남구 삼성동...">
                     </div>
+                </div>
+
+                <div id="prompt-section">
+                    <h2 id="prompt-title" class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <span class="w-1 h-3 bg-purple-500 rounded-full"></span> AI Generative Space
+                    </h2>
+                    <textarea id="ai-prompt" class="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm focus:outline-none focus:border-indigo-500/50 transition-all text-gray-300 h-44 leading-relaxed" placeholder="어떤 공간을 상상하시나요? 최대한 자세히 묘사해주세요..."></textarea>
+                    <button id="btn-generate" class="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-[1.02] active:scale-95 text-white font-bold py-4 rounded-2xl transition-all shadow-2xl">신비로운 공간 창조 시작</button>
+                    <div id="ai-status-box" class="hidden mt-6 p-5 rounded-2xl text-xs font-medium border border-indigo-500/20 bg-indigo-500/5 text-indigo-300"></div>
                 </div>
             </div>
 
-            <!-- 3D Viewer (col-span-5) -->
-            <div class="col-span-1 lg:col-span-5 bg-[#121214] p-6 rounded-2xl shadow-2xl flex flex-col border border-white/5">
-                <div class="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-                    <h2 class="text-lg font-bold text-white tracking-wide">🏙️ 3D 고해상도 투시도 스크린</h2>
-                    <span class="px-2 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold rounded text-xs hidden shadow-[0_0_8px_rgba(99,102,241,0.2)]" id="badge-success">Live Render</span>
-                </div>
-                <div id="viewer-container" class="flex-grow rounded-xl border border-white/10 bg-[#09090b] shadow-inner relative min-h-[300px] overflow-hidden">
-                    <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-600 pointer-events-none p-4 text-center">
-                        <svg class="w-12 h-12 mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
-                        <p class="text-sm">2D 평면도가 준비되면<br/>이곳에 3D 건축 모형이 투사됩니다.</p>
+            <!-- Main Hub (col-span-9) -->
+            <div class="col-span-1 lg:col-span-9 relative bg-[#050507]">
+                <!-- 2D Mini Monitoring (Floating top-left) -->
+                <div id="mini-2d" class="absolute top-8 left-8 w-64 h-64 glass-panel rounded-3xl z-40 p-4 border border-white/10 shadow-2xl transition-all hover:scale-105">
+                     <p class="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span> Blueprint Scan
+                    </p>
+                    <div class="w-full h-48 bg-black/40 rounded-xl flex items-center justify-center overflow-hidden relative">
+                         <img id="preview-img" class="max-w-full max-h-full object-contain hidden opacity-90 transition-opacity" src="" alt="2D preview">
+                         <div id="2d-placeholder" class="text-[9px] uppercase tracking-[0.2em] text-gray-700 font-bold">Scanning...</div>
+                         <div id="2d-loading" class="loading-overlay"> <div class="spinner !w-8 !h-8"></div> </div>
                     </div>
+                </div>
 
-                    <!-- 3D Loading Overlay -->
-                    <div id="3d-loading" class="loading-overlay">
-                        <div class="spinner mb-4"></div>
-                        <p class="text-indigo-400 font-bold text-sm tracking-widest animate-pulse">GENERATING 3D SPACE...</p>
+                <!-- 3D Viewport Full -->
+                <div id="viewer-container" class="w-full h-full">
+                    <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                         <p class="text-xs uppercase tracking-[0.4em] text-gray-600 font-bold animate-pulse">Initializing Virtual Construction...</p>
+                    </div>
+                    <div id="3d-loading" class="loading-overlay"> <div class="spinner"></div> </div>
+                    
+                    <!-- Walk Instructions -->
+                    <div id="walk-instructions">
+                        WASD - 이동  |  MOUSE - 둘러보기  |  ESC - 3D 모드로 복귀
                     </div>
                 </div>
             </div>
         </main>
-    </div> <!-- End Workspace Page -->
-    </div> <!-- End Workspace Wrapper -->
+    </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    
-    <script>
-        // Landing Page Navigation Logic
-        function enterWorkspace(mode) {
-            document.getElementById('landing-view').classList.add('hidden');
-            document.getElementById('workspace-view').classList.remove('hidden');
-            
-            // Dynamic Workflow Modes: Non-procedural Unified Tools
-            if (mode === 'prompt') {
-                document.getElementById('upload-section').classList.add('hidden');
-                document.getElementById('prompt-title').innerHTML = `✨ AI 제너러티브 설계 마스터`;
-                document.getElementById('prompt-desc').innerHTML = `오직 텍스트 묘사만으로 공간의 2D/3D 데이터를 동시에 창조합니다.`;
-                document.getElementById('2d-title').innerHTML = '📐 AI 생성 2D 설계 도면';
-                document.getElementById('2d-placeholder').innerHTML = 'AI가 상상한 도면이<br/>이 곳에 실시간 투사됩니다.';
-            } else if (mode === 'upload') {
-                document.getElementById('upload-section').classList.remove('hidden');
-                document.getElementById('prompt-title').innerHTML = `<svg class="w-4 h-4 text-purple-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg> AI 공간 튜닝 프롬프트`;
-                document.getElementById('prompt-desc').innerHTML = `업로드된 도면 데이터를 바탕으로 지시 사항을 즉각 반영하여 수정합니다.`;
-                document.getElementById('2d-title').innerHTML = '📐 원본 데이터 프리뷰';
-                document.getElementById('2d-placeholder').innerHTML = '스튜디오에 등록된 2D 데이터 소스가<br/>이 곳에 실시간 투사됩니다.';
-            }
+    <!-- Core Script -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+        import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+        import { PointerLockControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
+        import { EffectComposer } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+        import { OutputPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/OutputPass.js';
 
-            // Adjust ThreeJS container size slightly after rendering
-            setTimeout(() => {
-                window.dispatchEvent(new Event('resize'));
-                if (mode === 'prompt') {
-                    document.getElementById('ai-prompt').focus();
-                }
-            }, 100);
-        }
+        // Refs
+        const landingView = document.getElementById('landing-view');
+        const workspaceView = document.getElementById('workspace-view');
+        const viewerContainer = document.getElementById('viewer-container');
+        const aiPrompt = document.getElementById('ai-prompt');
+        const aiStatusBox = document.getElementById('ai-status-box');
+        const previewImg = document.getElementById('preview-img');
+        const displayAddress = document.getElementById('display-address');
+        const siteAddress = document.getElementById('site-address');
+        const instr = document.getElementById('walk-instructions');
 
-        // Return to Landing Page
-        function goHome() {
-            document.getElementById('workspace-view').classList.add('hidden');
-            document.getElementById('landing-view').classList.remove('hidden');
-        }
+        let walkMode = false;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
 
-        // Setup Scene
-        const container = document.getElementById('viewer-container');
-        // Scene Setup for Dark Theme
+        // 3D Engine Setup
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x09090b); // dark modern slate
-        scene.fog = new THREE.Fog(0x09090b, 20, 100);
-        
-        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-        camera.position.set(40, 50, 60);
+        scene.background = new THREE.Color(0x050507);
+        scene.fog = new THREE.Fog(0x050507, 40, 180);
 
+        const camera = new THREE.PerspectiveCamera(45, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 1.6;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
-        container.appendChild(renderer.domElement);
+        viewerContainer.appendChild(renderer.domElement);
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(viewerContainer.clientWidth, viewerContainer.clientHeight), 0.4, 0.4, 0.85));
+        composer.addPass(new OutputPass());
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05; // don't go below ground
+        controls.maxPolarAngle = Math.PI/2 - 0.1;
 
-        const textureLoader = new THREE.TextureLoader();
-        
-        // Load Wood Texture for Floor
-        const floorTexture = textureLoader.load('https://threejs.org/examples/textures/hardwood2_diffuse.jpg');
-        floorTexture.wrapS = THREE.RepeatWrapping;
-        floorTexture.wrapT = THREE.RepeatWrapping;
-        floorTexture.repeat.set(10, 10);
-        floorTexture.colorSpace = THREE.SRGBColorSpace;
-
-        // Dark Premium Grid & Floor
-        const gridHelper = new THREE.GridHelper(100, 100, 0x333333, 0x1a1a1a);
-        gridHelper.position.y = -0.01;
-        gridHelper.name = 'EnvCore';
-        scene.add(gridHelper);
-
-        const floorGeo = new THREE.PlaneGeometry(200, 200);
-        const floorMat = new THREE.MeshStandardMaterial({ 
-            map: floorTexture, 
-            roughness: 0.6, 
-            metalness: 0.1 
-        });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        floor.position.y = -0.1;
-        floor.name = 'EnvCore';
-        scene.add(floor);
-
-        // Pre-load Brick Texture for Walls
-        const brickTexture = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
-        brickTexture.wrapS = THREE.RepeatWrapping;
-        brickTexture.wrapT = THREE.RepeatWrapping;
-        brickTexture.repeat.set(0.1, 0.1);
-        brickTexture.colorSpace = THREE.SRGBColorSpace;
-        
-        const brickBump = textureLoader.load('https://threejs.org/examples/textures/brick_bump.jpg');
-        brickBump.wrapS = THREE.RepeatWrapping;
-        brickBump.wrapT = THREE.RepeatWrapping;
-        brickBump.repeat.set(0.1, 0.1);
+        const walkControls = new PointerLockControls(camera, document.body);
+        scene.add(walkControls.getObject());
 
         // Lights
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
-        hemiLight.position.set(0, 50, 0);
-        scene.add(hemiLight);
-        
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(30, 80, 40);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 4096;
-        dirLight.shadow.mapSize.height = 4096;
-        dirLight.shadow.camera.near = 0.5;
-        dirLight.shadow.camera.far = 200;
-        dirLight.shadow.camera.left = -50;
-        dirLight.shadow.camera.right = 50;
-        dirLight.shadow.camera.top = 50;
-        dirLight.shadow.camera.bottom = -50;
-        dirLight.shadow.bias = -0.0005;
-        scene.add(dirLight);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambient);
 
-        // Resize handler
-        window.addEventListener('resize', () => {
-            if(container.clientWidth === 0) return;
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
+        const spot = new THREE.SpotLight(0xffffff, 2);
+        spot.position.set(20, 80, 20);
+        spot.castShadow = true;
+        spot.shadow.mapSize.set(2048, 2048);
+        scene.add(spot);
+
+        // Env Components
+        const grid = new THREE.GridHelper(500, 100, 0x1a1a1e, 0x0a0a0c);
+        grid.position.y = -0.15;
+        scene.add(grid);
+
+        // Nav Logic
+        window.enterWorkspace = (mode) => {
+            landingView.style.opacity = '0';
+            landingView.style.transform = 'scale(1.1)';
+            setTimeout(() => {
+                landingView.classList.add('hidden');
+                workspaceView.classList.remove('hidden');
+                setTimeout(() => { workspaceView.style.opacity = '1'; }, 50);
+                if (mode === 'prompt') {
+                    document.getElementById('upload-section').classList.add('hidden');
+                    aiPrompt.focus();
+                }
+                window.dispatchEvent(new Event('resize'));
+            }, 800);
+        };
+
+        window.goHome = () => {
+             workspaceView.style.opacity = '0';
+             setTimeout(() => {
+                 workspaceView.classList.add('hidden');
+                 landingView.classList.remove('hidden');
+                 landingView.style.opacity = '1';
+                 landingView.style.transform = 'scale(1)';
+             }, 500);
+        };
+
+        siteAddress.addEventListener('input', () => { 
+            displayAddress.textContent = siteAddress.value || "Site Location Not Set";
+            if(siteAddress.value.length > 5) updateEnvironment(siteAddress.value);
         });
 
+        function updateEnvironment(addr) {
+            // Logic to change site background based on keyword
+            const isCity = addr.includes('서울') || addr.includes('시') || addr.includes('구');
+            // Mock: change grid color or floor texture
+            grid.material.color.setHex(isCity ? 0x333344 : 0x223322);
+        }
+
+        // Walkthrough Logic
+        window.toggleWalkMode = () => {
+            if (!walkMode) {
+                // Animate camera to entry
+                const targetPos = new THREE.Vector3(0, 1.7, 0); 
+                walkControls.lock();
+            } else {
+                walkControls.unlock();
+            }
+        };
+
+        walkControls.addEventListener('lock', () => {
+            walkMode = true;
+            controls.enabled = false;
+            instr.style.display = 'block';
+            document.getElementById('btn-walk').innerText = "Exit Building (나가기)";
+            camera.position.y = 1.7; // Human eye level
+        });
+
+        walkControls.addEventListener('unlock', () => {
+            walkMode = false;
+            controls.enabled = true;
+            instr.style.display = 'none';
+            document.getElementById('btn-walk').innerText = "Enter Building (체험하기)";
+            camera.position.set(50, 40, 50);
+            controls.update();
+        });
+
+        const onKeyDown = (e) => {
+            switch (e.code) {
+                case 'ArrowUp': case 'KeyW': moveForward = true; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = true; break;
+                case 'ArrowRight': case 'KeyD': moveRight = true; break;
+            }
+        };
+        const onKeyUp = (e) => {
+            switch (e.code) {
+                case 'ArrowUp': case 'KeyW': moveForward = false; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = false; break;
+                case 'ArrowRight': case 'KeyD': moveRight = false; break;
+            }
+        };
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+
+        // Model Loader
+        window.loadModel = (url, bgUrl, w, h) => {
+            const loader = new GLTFLoader();
+            loader.load(url, (gltf) => {
+                // Clear existing models
+                scene.children.slice().forEach(c => { 
+                    if(c.isGroup || c.isMesh) { 
+                        if(c.type !== 'GridHelper' && !c.isLight) scene.remove(c); 
+                    } 
+                });
+                
+                const model = gltf.scene;
+                model.traverse(n => { 
+                    if(n.isMesh) { 
+                        n.castShadow = true; n.receiveShadow = true; 
+                        n.material = new THREE.MeshPhysicalMaterial({
+                            color: 0xffffff, roughness: 0.4, metalness: 0.1, 
+                            sheen: 0.5, side: THREE.DoubleSide,
+                            envMapIntensity: 1.5
+                        }); 
+                    } 
+                });
+                scene.add(model);
+
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.z);
+                camera.position.set(maxDim * 1.5, maxDim, maxDim * 1.5);
+                controls.target.set(0, 0, 0);
+                document.getElementById('placeholder').classList.add('hidden');
+            });
+        };
+
         // Animation Loop
+        let prevTime = performance.now();
         function animate() {
             requestAnimationFrame(animate);
+            const time = performance.now();
+            
+            if (walkControls.isLocked === true) {
+                const delta = (time - prevTime) / 1000;
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+
+                walkControls.moveRight(-velocity.x * delta);
+                walkControls.moveForward(-velocity.z * delta);
+            }
+            
+            prevTime = time;
             controls.update();
-            renderer.render(scene, camera);
+            composer.render();
         }
         animate();
 
-        // Load Model function
-        function loadModel(url, bg_url="", bg_w=0, bg_h=0) {
-            const loader = new GLTFLoader();
-            loader.load(url, (gltf) => {
-                // Remove previous models
-                const objectsToRemove = [];
-                scene.children.forEach(child => {
-                    if((child.isGroup || child.isMesh) && child.name !== 'EnvCore') objectsToRemove.push(child);
-                });
-                objectsToRemove.forEach(obj => scene.remove(obj));
-                
-                // Add 2D Blueprint background mapped on the floor
-                if (bg_url && bg_w && bg_h) {
-                    const bgTexture = new THREE.TextureLoader().load(bg_url);
-                    bgTexture.colorSpace = THREE.SRGBColorSpace;
-                    const bgGeo = new THREE.PlaneGeometry(bg_w, bg_h);
-                    const bgMat = new THREE.MeshStandardMaterial({ map: bgTexture, roughness: 0.8, side: THREE.DoubleSide });
-                    const bgMesh = new THREE.Mesh(bgGeo, bgMat);
-                    bgMesh.rotation.x = -Math.PI / 2;
-                    bgMesh.position.y = 0.05; // slightly above wood floor
-                    bgMesh.receiveShadow = true;
-                    scene.add(bgMesh);
-                }
-                
-                const model = gltf.scene;
-                
-                // Set shadow and material properties
-                model.traverse((node) => {
-                    if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
+        // API Handler
+        const showLoading = () => { document.getElementById('2d-loading').classList.add('active'); document.getElementById('3d-loading').classList.add('active'); };
+        const hideLoading = () => { document.getElementById('2d-loading').classList.remove('active'); document.getElementById('3d-loading').classList.remove('active'); };
 
-                        // Auto-generate UV coordinates if missing (so textures can wrap)
-                        if (!node.geometry.attributes.uv) {
-                            const pos = node.geometry.attributes.position;
-                            const uvs = new Float32Array(pos.count * 2);
-                            for (let i = 0; i < pos.count; i++) {
-                                let x = pos.getX(i);
-                                let y = pos.getY(i);
-                                let z = pos.getZ(i);
-                                uvs[i*2] = x * 0.2 + z * 0.2; 
-                                uvs[i*2+1] = y * 0.2;
-                            }
-                            node.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-                        }
-
-                        // Apply Architectural Premium Interior Wall Material
-                        node.material = new THREE.MeshPhysicalMaterial({
-                            color: 0xfaf9f5, // Warm, luxurious ivory/white paint
-                            bumpMap: brickBump, // Reuse bump map to simulate fine wall plaster texture
-                            bumpScale: 0.05,    // Very subtle bumps like premium wallpaper
-                            roughness: 0.85,    // Matte finish
-                            metalness: 0.0,
-                            clearcoat: 0.1,     // Slight luxury sheen
-                            clearcoatRoughness: 0.5,
-                            side: THREE.DoubleSide
-                        });
-                        node.geometry.computeVertexNormals(); // Make rendering smoother
-                    }
-                });
-
-                // Center model
-                const box = new THREE.Box3().setFromObject(model);
-                const center = box.getCenter(new THREE.Vector3());
-                model.position.sub(center);
-                
-                // Adjust floor/grid helper to match botom block
-                gridHelper.position.y = box.min.y - center.y - 0.1;
-                
-                scene.add(model);
-                document.getElementById('placeholder').classList.add('hidden');
-                document.getElementById('badge-success').classList.remove('hidden');
-
-                // Adjust camera distance safely
-                const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const fov = camera.fov * (Math.PI / 180);
-                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-                cameraZ = cameraZ * 1.4; // padding
-                if (!isFinite(cameraZ) || cameraZ < 1) cameraZ = 30;
-                camera.position.set(cameraZ, cameraZ * 0.8, cameraZ * 1.2);
-                controls.target.set(0, 0, 0);
-                controls.update();
-
-            }, undefined, (error) => {
-                console.error(error);
-                alert("3D 모델을 불러오는 중 오류가 발생했습니다.");
-            });
-        }
-
-        // Upload Logic
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        const aiStatusBox = document.getElementById('ai-status-box');
-
-        // FIXED: Ensure click on drop-zone always triggers file input
-        dropZone.addEventListener('click', (e) => {
-            console.log("Drop zone clicked");
-            fileInput.click();
-        });
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-blue-50', 'border-blue-400'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-blue-50', 'border-blue-400'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-blue-50', 'border-blue-400');
-            if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files[0]);
-        });
-        
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) handleUpload(e.target.files[0]);
-        });
-        
-        function showLoading() {
-            document.getElementById('2d-loading').classList.add('active');
-            document.getElementById('3d-loading').classList.add('active');
-        }
-        
-        function hideLoading() {
-            document.getElementById('2d-loading').classList.remove('active');
-            document.getElementById('3d-loading').classList.remove('active');
-        }
-
-        async function handleUpload(file) {
+        window.handleUpload = async (file) => {
             aiStatusBox.classList.remove('hidden');
-            aiStatusBox.className = "p-4 rounded-xl font-medium text-center shadow-inner transition-all bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 animate-pulse mt-4";
-            aiStatusBox.innerHTML = `도면 분석 및 3D 모델링 중... <br/><span class="text-xs font-normal opacity-70">파일: ${file.name}</span>`;
-            document.getElementById('badge-success').classList.add('hidden');
-            
-            // Show image preview
-            const previewImg = document.getElementById('preview-img');
-            document.getElementById('2d-placeholder').classList.add('hidden');
+            aiStatusBox.innerHTML = `Analyzing Architecture Source... <br/><span class="text-[10px] opacity-70">${file.name}</span>`;
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    previewImg.src = e.target.result;
-                    previewImg.classList.remove('hidden');
-                };
+                reader.onload = (e) => { previewImg.src = e.target.result; previewImg.classList.remove('hidden'); document.getElementById('2d-placeholder').classList.add('hidden'); };
                 reader.readAsDataURL(file);
             }
-            
-            const formData = new FormData();
-            formData.append('file', file);
-            
+            const fd = new FormData(); fd.append('file', file);
             try {
-                showLoading(); // Show loading overlay
-                const response = await fetch('/upload', { method: 'POST', body: formData });
-                const data = await response.json();
-                
+                showLoading();
+                const res = await fetch('/upload', { method: 'POST', body: fd });
+                const data = await res.json();
                 if (data.status === 'success') {
-                    aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 mt-4";
-                    aiStatusBox.textContent = "변환 완료! 3D 투사 중...";
-                    if(data.bg_url && !file.type.startsWith('image/')){
-                         previewImg.src = data.bg_url; 
-                         previewImg.classList.remove('hidden'); 
-                    }
-                    if(data.model_url) loadModel(data.model_url, data.bg_url, data.width, data.height);
-                } else {
-                    aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-500/20 text-red-300 border border-red-500/30 mt-4";
-                    aiStatusBox.textContent = "변환 실패: " + data.message;
-                }
-            } catch (error) {
-                console.error(error);
-                aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-500/20 text-red-300 border border-red-500/30 mt-4";
-                aiStatusBox.textContent = "서버와의 통신 오류가 발생했습니다.";
-            } finally {
-                hideLoading(); // Always hide loading overlay at the end
-            }
-        }
+                    aiStatusBox.innerHTML = "Project Construction Ready.";
+                    window.loadModel(data.model_url, data.bg_url, data.width, data.height);
+                } else { aiStatusBox.textContent = "Error: " + data.message; }
+            } catch(e) { aiStatusBox.textContent = "Network Connectivity Error"; }
+            finally { hideLoading(); }
+        };
 
-        // Generative AI Text-to-3D Logic
-        document.getElementById('btn-generate').addEventListener('click', async () => {
-            const text = document.getElementById('ai-prompt').value.trim();
-            if (!text) return alert("도면을 어떻게 그릴지 지시할 내용을 꼭 입력해주세요!");
-            
-            const aiStatusBox = document.getElementById('ai-status-box');
+        const fileInput = document.getElementById('file-input');
+        document.getElementById('drop-zone').onclick = () => fileInput.click();
+        fileInput.onchange = (e) => { if(e.target.files[0]) window.handleUpload(e.target.files[0]); };
+
+        document.getElementById('btn-generate').onclick = async () => {
+            const prompt = aiPrompt.value.trim();
+            if(!prompt) return alert("부디 당신의 상상을 입력해 주세요.");
             aiStatusBox.classList.remove('hidden');
-            aiStatusBox.className = "p-4 rounded-xl font-medium text-center shadow-inner transition-all bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 animate-pulse mt-4";
-            aiStatusBox.innerHTML = `🧠 AI 공간을 설계 중입니다... <br/><span class="text-xs font-normal opacity-70">"${text}"</span>`;
-            document.getElementById('badge-success').classList.add('hidden');
-            document.getElementById('placeholder').classList.add('hidden');
-            document.getElementById('2d-placeholder').classList.add('hidden'); // Fix: hide 2D placeholder during AI generation
-            
-            const formData = new FormData();
-            formData.append('prompt', text);
-            
+            aiStatusBox.innerHTML = "AI가 상상을 현실로 소환하고 있습니다...";
+            const fd = new FormData(); fd.append('prompt', prompt);
             try {
-                showLoading(); // Show loading overlay
-                const response = await fetch('/generate', { method: 'POST', body: formData });
-                const data = await response.json();
-                
+                showLoading();
+                const res = await fetch('/generate', { method: 'POST', body: fd });
+                const data = await res.json();
                 if (data.status === 'success') {
-                    aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 mt-4";
-                    aiStatusBox.innerHTML = `✨ AI 2D/3D 설계 완료!`;
-                    
-                    const previewImg = document.getElementById('preview-img');
-                    if(data.bg_url) {
-                        previewImg.src = data.bg_url; 
-                        previewImg.classList.remove('hidden');
-                    }
-                    
-                    if(data.model_url) loadModel(data.model_url, data.bg_url, data.width, data.height);
-                } else {
-                    aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-500/20 text-red-300 border border-red-500/30 mt-4";
-                    aiStatusBox.textContent = "AI 설계 실패: " + data.message;
-                }
-            } catch (error) {
-                console.error(error);
-                aiStatusBox.className = "p-4 rounded-xl font-medium text-center bg-red-500/20 text-red-300 border border-red-500/30 mt-4";
-                aiStatusBox.textContent = "서버 접속 지연 오류가 발생했습니다.";
-            } finally {
-                hideLoading(); // Always hide loading overlay
-            }
+                    aiStatusBox.textContent = "상상이 공간으로 성공적으로 소환되었습니다.";
+                    if(data.bg_url) { previewImg.src = data.bg_url; previewImg.classList.remove('hidden'); document.getElementById('2d-placeholder').classList.add('hidden'); }
+                    window.loadModel(data.model_url, data.bg_url, data.width, data.height);
+                } else { aiStatusBox.textContent = "AI Failure: " + data.message; }
+            } catch(e) { aiStatusBox.textContent = "Server Orchestration Error"; }
+            finally { hideLoading(); }
+        };
+
+        window.addEventListener('resize', () => {
+            if (viewerContainer.clientWidth === 0) return;
+            camera.aspect = viewerContainer.clientWidth / viewerContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+            composer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
         });
     </script>
 </body>
