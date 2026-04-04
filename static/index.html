@@ -75,14 +75,14 @@
             </p>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                <button onclick="enterWorkspace('upload')" class="group p-12 rounded-[2.5rem] glass-panel hover:border-indigo-500/50 hover:bg-white/5 transition-all text-left">
+                <button id="btn-studio-upload" class="group p-12 rounded-[2.5rem] glass-panel hover:border-indigo-500/50 hover:bg-white/5 transition-all text-left">
                     <div class="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-6 text-indigo-400 group-hover:scale-110 transition">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></svg>
                     </div>
                     <h3 class="text-2xl font-bold text-white mb-3">도면 변환 스튜디오</h3>
                     <p class="text-sm text-gray-400 leading-relaxed">평면도(2D)를 고해상도 입체 모델(3D)로 즉각 구현하며, 주변 부지 맥락까지 연출합니다.</p>
                 </button>
-                <button onclick="enterWorkspace('prompt')" class="group p-12 rounded-[2.5rem] glass-panel hover:border-purple-500/50 hover:bg-white/5 transition-all text-left">
+                <button id="btn-studio-prompt" class="group p-12 rounded-[2.5rem] glass-panel hover:border-purple-500/50 hover:bg-white/5 transition-all text-left">
                      <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-6 text-purple-400 group-hover:scale-110 transition">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></svg>
                     </div>
@@ -175,16 +175,26 @@
         </main>
     </div>
 
+    <!-- Import Map for Three.js dependencies -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
     <!-- Core Script -->
     <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-        import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-        import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-        import { PointerLockControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
-        import { EffectComposer } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-        import { OutputPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/OutputPass.js';
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
         // Refs
         const landingView = document.getElementById('landing-view');
@@ -253,32 +263,43 @@
         grid.position.y = -0.05;
         scene.add(grid);
 
-        // --- GLOBAL EXPOSURE (Fix for Button Interaction) ---
+        // --- Core Navigation (Redundant but safe) ---
         window.enterWorkspace = (mode) => {
-            console.log("Entering workspace with mode:", mode);
-            landingView.style.opacity = '0';
-            landingView.style.transform = 'scale(1.05) translateY(-20px)';
+            console.log("Navigating to Workspace Mode:", mode);
+            const landing = document.getElementById('landing-view');
+            const workspace = document.getElementById('workspace-view');
+            
+            landing.style.opacity = '0';
+            landing.style.transform = 'scale(1.05) translateY(-20px)';
+            
             setTimeout(() => {
-                landingView.classList.add('hidden');
-                workspaceView.classList.remove('hidden');
-                setTimeout(() => { workspaceView.style.opacity = '1'; }, 50);
+                landing.classList.add('hidden');
+                workspace.classList.remove('hidden');
+                setTimeout(() => { 
+                    workspace.style.opacity = '1'; 
+                    window.dispatchEvent(new Event('resize'));
+                }, 50);
                 if (mode === 'prompt') {
                     document.getElementById('upload-section').classList.add('hidden');
-                    aiPrompt.focus();
+                    document.getElementById('ai-prompt')?.focus();
                 }
-                window.dispatchEvent(new Event('resize'));
             }, 600);
         };
 
         window.goHome = () => {
-             workspaceView.style.opacity = '0';
+             const workspace = document.getElementById('workspace-view');
+             const landing = document.getElementById('landing-view');
+             workspace.style.opacity = '0';
              setTimeout(() => {
-                 workspaceView.classList.add('hidden');
-                 landingView.classList.remove('hidden');
-                 landingView.style.opacity = '1';
-                 landingView.style.transform = 'scale(1) translateY(0)';
+                 workspace.classList.add('hidden');
+                 landing.classList.remove('hidden');
+                 landing.style.opacity = '1';
+                 landing.style.transform = 'scale(1) translateY(0)';
              }, 500);
         };
+
+        // --- 3D Engine Setup ---
+        // Scene already defined at the top
 
         window.toggleWalkMode = () => {
             if (!walkMode) {
@@ -465,9 +486,21 @@
             composer.setSize(w, h);
         });
 
-        // Forced Resize for layout calculation
-        setTimeout(() => window.dispatchEvent(new Event('resize')), 500);
-
+        // --- Event Listener Registration (Bulletproof) ---
+        window.addEventListener('load', () => {
+            console.log("HabiLab Studio Engine Initialized.");
+            document.getElementById('btn-studio-upload')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.enterWorkspace('upload');
+            });
+            document.getElementById('btn-studio-prompt')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.enterWorkspace('prompt');
+            });
+            
+            // Initial resize fix
+            window.dispatchEvent(new Event('resize'));
+        });
     </script>
 </body>
 </html>
