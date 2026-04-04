@@ -205,50 +205,59 @@
         // 3D Engine Setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050507);
-        scene.fog = new THREE.Fog(0x050507, 40, 180);
+        scene.fog = new THREE.FogExp2(0x050507, 0.002);
 
-        const camera = new THREE.PerspectiveCamera(45, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(45, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.1, 2000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
-        renderer.toneMapping = THREE.ReinhardToneMapping;
-        renderer.toneMappingExposure = 1.6;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         viewerContainer.appendChild(renderer.domElement);
 
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(viewerContainer.clientWidth, viewerContainer.clientHeight), 0.4, 0.4, 0.85));
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(viewerContainer.clientWidth, viewerContainer.clientHeight), 0.5, 0.4, 0.85);
+        composer.addPass(bloomPass);
         composer.addPass(new OutputPass());
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.maxPolarAngle = Math.PI/2 - 0.1;
+        controls.maxPolarAngle = Math.PI/2 - 0.05;
 
         const walkControls = new PointerLockControls(camera, document.body);
         scene.add(walkControls.getObject());
 
-        // Lights
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        // Dynamic Lighting
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambient);
 
-        const spot = new THREE.SpotLight(0xffffff, 2);
-        spot.position.set(20, 80, 20);
-        spot.castShadow = true;
-        spot.shadow.mapSize.set(2048, 2048);
-        scene.add(spot);
+        const hemiLight = new THREE.HemisphereLight(0x6366f1, 0x09090b, 0.6);
+        scene.add(hemiLight);
 
-        // Env Components
-        const grid = new THREE.GridHelper(500, 100, 0x1a1a1e, 0x0a0a0c);
-        grid.position.y = -0.15;
+        const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+        sun.position.set(100, 200, 100);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(4096, 4096);
+        sun.shadow.camera.left = -200;
+        sun.shadow.camera.right = 200;
+        sun.shadow.camera.top = 200;
+        sun.shadow.camera.bottom = -200;
+        scene.add(sun);
+
+        // Env Components (Premium Grid)
+        const grid = new THREE.GridHelper(1000, 100, 0x1f2937, 0x0c0c0e);
+        grid.position.y = -0.05;
         scene.add(grid);
 
-        // Nav Logic
+        // --- GLOBAL EXPOSURE (Fix for Button Interaction) ---
         window.enterWorkspace = (mode) => {
+            console.log("Entering workspace with mode:", mode);
             landingView.style.opacity = '0';
-            landingView.style.transform = 'scale(1.1)';
+            landingView.style.transform = 'scale(1.05) translateY(-20px)';
             setTimeout(() => {
                 landingView.classList.add('hidden');
                 workspaceView.classList.remove('hidden');
@@ -258,7 +267,7 @@
                     aiPrompt.focus();
                 }
                 window.dispatchEvent(new Event('resize'));
-            }, 800);
+            }, 600);
         };
 
         window.goHome = () => {
@@ -267,74 +276,74 @@
                  workspaceView.classList.add('hidden');
                  landingView.classList.remove('hidden');
                  landingView.style.opacity = '1';
-                 landingView.style.transform = 'scale(1)';
+                 landingView.style.transform = 'scale(1) translateY(0)';
              }, 500);
         };
 
-        siteAddress.addEventListener('input', () => { 
-            displayAddress.textContent = siteAddress.value || "Site Location Not Set";
-            if(siteAddress.value.length > 5) updateEnvironment(siteAddress.value);
-        });
-
-        function updateEnvironment(addr) {
-            // Logic to change site background based on keyword
-            const isCity = addr.includes('서울') || addr.includes('시') || addr.includes('구');
-            // Mock: change grid color or floor texture
-            grid.material.color.setHex(isCity ? 0x333344 : 0x223322);
-        }
-
-        // Walkthrough Logic
         window.toggleWalkMode = () => {
             if (!walkMode) {
-                // Animate camera to entry
-                const targetPos = new THREE.Vector3(0, 1.7, 0); 
                 walkControls.lock();
             } else {
                 walkControls.unlock();
             }
         };
 
+        // --- Walkthrough Logic ---
         walkControls.addEventListener('lock', () => {
             walkMode = true;
             controls.enabled = false;
             instr.style.display = 'block';
-            document.getElementById('btn-walk').innerText = "Exit Building (나가기)";
-            camera.position.y = 1.7; // Human eye level
+            document.getElementById('btn-walk').innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></svg> Exit View`;
+            camera.position.y = 1.8; 
         });
 
         walkControls.addEventListener('unlock', () => {
             walkMode = false;
             controls.enabled = true;
             instr.style.display = 'none';
-            document.getElementById('btn-walk').innerText = "Enter Building (체험하기)";
-            camera.position.set(50, 40, 50);
+            document.getElementById('btn-walk').innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M5 5l7 7-7 7"></svg> Enter Building`;
+            camera.position.set(100, 80, 100);
             controls.update();
         });
 
         const onKeyDown = (e) => {
             switch (e.code) {
-                case 'ArrowUp': case 'KeyW': moveForward = true; break;
-                case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
-                case 'ArrowDown': case 'KeyS': moveBackward = true; break;
-                case 'ArrowRight': case 'KeyD': moveRight = true; break;
+                case 'KeyW': moveForward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyD': moveRight = true; break;
             }
         };
         const onKeyUp = (e) => {
             switch (e.code) {
-                case 'ArrowUp': case 'KeyW': moveForward = false; break;
-                case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
-                case 'ArrowDown': case 'KeyS': moveBackward = false; break;
-                case 'ArrowRight': case 'KeyD': moveRight = false; break;
+                case 'KeyW': moveForward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyD': moveRight = false; break;
             }
         };
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
 
+        // Site Context logic
+        siteAddress.addEventListener('change', () => {
+            const addr = siteAddress.value;
+            displayAddress.textContent = addr || "Global Site Node";
+            // Heuristic environment change
+            if(addr.includes("강남") || addr.includes("서울")) {
+                scene.background = new THREE.Color(0x0c0c1e);
+                hemiLight.color.setHex(0xbc9fff);
+            } else if(addr.includes("제주") || addr.includes("바다")) {
+                scene.background = new THREE.Color(0x1a2e3b);
+                hemiLight.color.setHex(0xa0d8ef);
+            }
+        });
+
         // Model Loader
         window.loadModel = (url, bgUrl, w, h) => {
             const loader = new GLTFLoader();
             loader.load(url, (gltf) => {
-                // Clear existing models
+                // Garbage collection
                 scene.children.slice().forEach(c => { 
                     if(c.isGroup || c.isMesh) { 
                         if(c.type !== 'GridHelper' && !c.isLight) scene.remove(c); 
@@ -345,20 +354,28 @@
                 model.traverse(n => { 
                     if(n.isMesh) { 
                         n.castShadow = true; n.receiveShadow = true; 
+                        // Architectural Material (Nano Banana Edition)
                         n.material = new THREE.MeshPhysicalMaterial({
-                            color: 0xffffff, roughness: 0.4, metalness: 0.1, 
-                            sheen: 0.5, side: THREE.DoubleSide,
-                            envMapIntensity: 1.5
+                            color: 0xeeeeee, 
+                            roughness: 0.2, 
+                            metalness: 0.05, 
+                            transmission: (n.name.includes('window')) ? 0.9 : 0,
+                            thickness: 1.0,
+                            ior: 1.5,
+                            envMapIntensity: 2.0
                         }); 
                     } 
                 });
                 scene.add(model);
 
+                // Auto-Focus
                 const box = new THREE.Box3().setFromObject(model);
                 const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
                 const maxDim = Math.max(size.x, size.z);
-                camera.position.set(maxDim * 1.5, maxDim, maxDim * 1.5);
-                controls.target.set(0, 0, 0);
+                camera.position.set(center.x + maxDim * 1.2, maxDim, center.z + maxDim * 1.2);
+                controls.target.copy(center);
+                controls.update();
                 document.getElementById('placeholder').classList.add('hidden');
             });
         };
@@ -390,13 +407,13 @@
         }
         animate();
 
-        // API Handler
+        // API Handler Integration
         const showLoading = () => { document.getElementById('2d-loading').classList.add('active'); document.getElementById('3d-loading').classList.add('active'); };
         const hideLoading = () => { document.getElementById('2d-loading').classList.remove('active'); document.getElementById('3d-loading').classList.remove('active'); };
 
         window.handleUpload = async (file) => {
             aiStatusBox.classList.remove('hidden');
-            aiStatusBox.innerHTML = `Analyzing Architecture Source... <br/><span class="text-[10px] opacity-70">${file.name}</span>`;
+            aiStatusBox.innerHTML = `Constructing Architecture Artifact...<br/><span class="text-[9px] opacity-60">${file.name}</span>`;
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = (e) => { previewImg.src = e.target.result; previewImg.classList.remove('hidden'); document.getElementById('2d-placeholder').classList.add('hidden'); };
@@ -408,10 +425,10 @@
                 const res = await fetch('/upload', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    aiStatusBox.innerHTML = "Project Construction Ready.";
+                    aiStatusBox.innerHTML = "Site Deployment Successful.";
                     window.loadModel(data.model_url, data.bg_url, data.width, data.height);
-                } else { aiStatusBox.textContent = "Error: " + data.message; }
-            } catch(e) { aiStatusBox.textContent = "Network Connectivity Error"; }
+                } else { aiStatusBox.textContent = "Processing Fault: " + data.message; }
+            } catch(e) { aiStatusBox.textContent = "System Orchestration Timeout"; }
             finally { hideLoading(); }
         };
 
@@ -434,17 +451,23 @@
                     if(data.bg_url) { previewImg.src = data.bg_url; previewImg.classList.remove('hidden'); document.getElementById('2d-placeholder').classList.add('hidden'); }
                     window.loadModel(data.model_url, data.bg_url, data.width, data.height);
                 } else { aiStatusBox.textContent = "AI Failure: " + data.message; }
-            } catch(e) { aiStatusBox.textContent = "Server Orchestration Error"; }
+            } catch(e) { aiStatusBox.textContent = "Server Synchronization Failure"; }
             finally { hideLoading(); }
         };
 
         window.addEventListener('resize', () => {
-            if (viewerContainer.clientWidth === 0) return;
-            camera.aspect = viewerContainer.clientWidth / viewerContainer.clientHeight;
+            const w = viewerContainer.clientWidth;
+            const h = viewerContainer.clientHeight;
+            if (w === 0) return;
+            camera.aspect = w / h;
             camera.updateProjectionMatrix();
-            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
-            composer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+            renderer.setSize(w, h);
+            composer.setSize(w, h);
         });
+
+        // Forced Resize for layout calculation
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 500);
+
     </script>
 </body>
 </html>

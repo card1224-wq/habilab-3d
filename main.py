@@ -13,6 +13,7 @@ app = FastAPI()
 os.makedirs("static", exist_ok=True)
 os.makedirs("uploads", exist_ok=True)
 os.makedirs("static/models", exist_ok=True)
+os.makedirs("static/bg", exist_ok=True) # Added for background textures
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -86,27 +87,35 @@ async def generate_floorplan(prompt: str = Form(...)):
         cv2.rectangle(img, (100, 100), (1400, 900), (0,0,0), wall_thickness)
         
         # Heuristic: Split rooms based on keywords
+        # Heuristic: Premium Layout Logic (Nano Banana Style)
         if "거실" in prompt or "living" in prompt.lower():
-            cv2.line(img, (600, 100), (600, 900), (0,0,0), wall_thickness) # Main divider
-            cv2.putText(img, "LIVING ROOM", (150, 500), font, 1.5, (0,0,0), 3)
+            # Classic 3-Bay Partitioning Mockup
+            cv2.line(img, (600, 100), (600, 900), (0,0,0), wall_thickness) # Front Divider
+            cv2.line(img, (1000, 100), (1000, 900), (0,0,0), wall_thickness) # Bedroom separation
             
-            if "방" in prompt or "room" in prompt.lower():
-                 cv2.line(img, (600, 500), (1400, 500), (0,0,0), wall_thickness) # Horizontal split
-                 cv2.putText(img, "MASTER BED", (800, 300), font, 1.2, (0,0,0), 2)
-                 cv2.putText(img, "GUEST ROOM", (800, 750), font, 1.2, (0,0,0), 2)
-            else:
-                 cv2.putText(img, "OPEN BALCONY", (800, 500), font, 1.2, (0,0,0), 2)
+            # Sub-dividers for Master/Guest
+            cv2.line(img, (1000, 500), (1400, 500), (0,0,0), wall_thickness)
+            
+            # Annotations
+            cv2.putText(img, "MAIN LIVING", (120, 500), font, 1.2, (0,0,0), 3)
+            cv2.putText(img, "TERRACE ZONE", (620, 300), font, 1.0, (0,0,0), 2)
+            cv2.putText(img, "MASTER BED", (1020, 300), font, 1.0, (0,0,0), 2)
+            cv2.putText(img, "GUEST ROOM", (1020, 750), font, 1.0, (0,0,0), 2)
+            
+            if "주방" in prompt or "kitchen" in prompt.lower():
+                 cv2.rectangle(img, (100, 100), (500, 350), (0,0,0), wall_thickness)
+                 cv2.putText(img, "OPEN KITCHEN", (120, 250), font, 0.8, (0,0,0), 2)
         else:
-            # Default Studio Layout
+            # Minimalist Gallery / Studio Layout
             cv2.line(img, (750, 100), (750, 900), (0,0,0), wall_thickness)
-            cv2.putText(img, "STUDIO A", (250, 500), font, 1.5, (0,0,0), 3)
-            cv2.putText(img, "STUDIO B", (950, 500), font, 1.5, (0,0,0), 3)
+            cv2.putText(img, "ATELIER A", (250, 500), font, 1.5, (0,0,0), 3)
+            cv2.putText(img, "ATELIER B", (950, 500), font, 1.5, (0,0,0), 3)
+            
+        # Draw "Floor Polish" - Door indicators (Mock)
+        cv2.circle(img, (600, 500), 10, (150,150,150), -1) # Door pivot A
+        cv2.circle(img, (1000, 300), 10, (150,150,150), -1) # Door pivot B
 
-        if "주방" in prompt or "kitchen" in prompt.lower():
-            cv2.rectangle(img, (100, 100), (400, 300), (0,0,0), wall_thickness)
-            cv2.putText(img, "KITCHEN", (150, 200), font, 1.0, (0,0,0), 2)
-
-        cv2.putText(img, f"AI DESIGNED FOR: {prompt[:30]}...", (100, 60), font, 1.0, (50,50,50), 2)
+        cv2.putText(img, f"HABILAB PREMIUM AI DESIGN", (100, 60), font, 0.8, (120,120,120), 2)
         
         # 2. Save Generated 2D Plan
         filename = f"ai_gen_{int(time.time())}"
@@ -118,16 +127,16 @@ async def generate_floorplan(prompt: str = Form(...)):
         cv2.imwrite(bg_path, img)
         
         from core.cv_engine import process_image_to_3d
-        # Nano Banana level extrusion: higher walls for premium feel
-        process_image_to_3d(img_path, demo_model_path, wall_height=25.0)
+        # Premium extrusion: 35.0 for dramatic interior feel
+        process_image_to_3d(img_path, demo_model_path, wall_height=35.0)
         
         return {
             "status": "success", 
-            "message": "AI premium layout generated", 
+            "message": "AI premium spatial construction complete", 
             "model_url": f"/static/models/{filename}.glb",
             "bg_url": f"/static/models/{filename}_bg.jpg",
-            "width": 1500 * 0.1,
-            "height": 1000 * 0.1
+            "width": 150.0,
+            "height": 100.0
         }
     except Exception as e:
         print(f"Error in AI generation: {e}")
