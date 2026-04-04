@@ -105,11 +105,10 @@
                 <span id="display-address">Site Location Not Set</span>
             </div>
             <div class="flex gap-4">
-                 <button onclick="toggleWalkMode()" id="btn-walk" class="btn-premium flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></svg>
-                    Enter Building (체험하기)
+                 <button id="btn-walk" class="btn-premium flex items-center gap-2 bg-white/10 hover:bg-white/20 border-white/20 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    1인칭 스튜디오 투어
                 </button>
-                <button class="btn-premium btn-primary">Export Production</button>
             </div>
         </nav>
 
@@ -360,6 +359,81 @@
             }
         });
 
+        // --- Procedural Urban Context ---
+        function generateUrbanContext(scene, boundsSize) {
+            // Remove previous context if any
+            const oldContext = scene.getObjectByName('UrbanContextGroup');
+            if(oldContext) scene.remove(oldContext);
+
+            const contextGroup = new THREE.Group();
+            contextGroup.name = 'UrbanContextGroup';
+
+            // Premium Minimalist Car Material (Nano Banana Style)
+            const carMaterialBody = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.3, clearcoat: 1.0 });
+            const carMaterialWindow = new THREE.MeshPhysicalMaterial({ color: 0x050505, roughness: 0.0, transmission: 0.6, thickness: 0.5 });
+            
+            // Generate Cars
+            for(let i=0; i<6; i++) {
+                const carGroup = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 1.8), carMaterialBody);
+                body.position.y = 0.8;
+                body.castShadow = true;
+                const top = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.8, 1.6), carMaterialWindow);
+                top.position.set(-0.2, 1.8, 0);
+                carGroup.add(body, top);
+                
+                // Position organically around the outer ring
+                const angle = Math.random() * Math.PI * 2;
+                const distance = (boundsSize * 0.6) + Math.random() * (boundsSize * 0.4);
+                carGroup.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+                carGroup.rotation.y = Math.random() * Math.PI;
+                contextGroup.add(carGroup);
+            }
+
+            // Generate Emissive Streetlights
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 });
+            const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff5e6, emissive: 0xfff5e6, emissiveIntensity: 2.5 });
+            
+            for(let i=0; i<12; i++) {
+                const lightGroup = new THREE.Group();
+                const poleHeight = 6 + Math.random() * 2;
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, poleHeight), poleMat);
+                pole.position.y = poleHeight / 2;
+                pole.castShadow = true;
+                const bulb = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.4), lightMat);
+                bulb.position.set(0.5, poleHeight, 0);
+                
+                // Add actual point light for glow/ambient reflection
+                const pLight = new THREE.PointLight(0xffeacc, 0.6, 40);
+                pLight.position.set(0.5, poleHeight - 0.5, 0);
+                
+                lightGroup.add(pole, bulb, pLight);
+                
+                const angle = (i / 12) * Math.PI * 2;
+                const distance = boundsSize * 0.65; // Street ring
+                lightGroup.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+                lightGroup.rotation.y = -angle + Math.PI; // Face inward toward building
+                contextGroup.add(lightGroup);
+            }
+
+            // Generate Abstract Minimal Trees (Glass/White Cones)
+            const treeMat = new THREE.MeshPhysicalMaterial({ color: 0xf3f4f6, transmission: 0.6, roughness: 0.4, metalness: 0.1, ior: 1.4 });
+            for(let i=0; i<25; i++) {
+                const treeHeight = 3 + Math.random() * 5;
+                const tree = new THREE.Mesh(new THREE.ConeGeometry(treeHeight * 0.25, treeHeight, 5), treeMat);
+                tree.position.y = treeHeight / 2;
+                tree.castShadow = true;
+                
+                const angle = Math.random() * Math.PI * 2;
+                const distance = (boundsSize * 0.5) + Math.random() * (boundsSize * 0.8);
+                tree.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+                tree.rotation.y = Math.random() * Math.PI;
+                contextGroup.add(tree);
+            }
+
+            scene.add(contextGroup);
+        }
+
         // Model Loader
         window.loadModel = (url, bgUrl, w, h) => {
             const loader = new GLTFLoader();
@@ -389,11 +463,15 @@
                 });
                 scene.add(model);
 
-                // Auto-Focus
+                // Auto-Focus & Scale computation
                 const box = new THREE.Box3().setFromObject(model);
                 const size = box.getSize(new THREE.Vector3());
                 const center = box.getCenter(new THREE.Vector3());
                 const maxDim = Math.max(size.x, size.z);
+                
+                // Construct procedural urban setting based on building size
+                generateUrbanContext(scene, maxDim);
+
                 camera.position.set(center.x + maxDim * 1.2, maxDim, center.z + maxDim * 1.2);
                 controls.target.copy(center);
                 controls.update();
@@ -496,6 +574,11 @@
             document.getElementById('btn-studio-prompt')?.addEventListener('click', (e) => {
                 e.preventDefault();
                 window.enterWorkspace('prompt');
+            });
+            
+            document.getElementById('btn-walk')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.toggleWalkMode();
             });
             
             // Initial resize fix
