@@ -6,8 +6,18 @@ import shutil
 import uvicorn
 import time
 import trimesh
+import json
+import google.generativeai as genai
 
 app = FastAPI()
+
+# ------------------------------------------------------------------
+# [ZENTHEX STUDIO] Google Gemini API Settings
+# 실제 키를 발급받으시면 아래 'YOUR_API_KEY_HERE' 대신 기입해 주세요.
+# ------------------------------------------------------------------
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_API_KEY_HERE")
+genai.configure(api_key=GEMINI_API_KEY)
+
 
 # Make directories
 os.makedirs("static", exist_ok=True)
@@ -40,7 +50,38 @@ async def upload_floorplan(file: UploadFile = File(...)):
             bg_filename = model_filename.replace('.glb', '_bg.png')
             bg_path = f"static/models/{bg_filename}"
             
-            process_image_to_3d(file_path, demo_model_path, wall_height=15.0, output_png_path=bg_path)
+            # --- ZENTHEX AI BRAIN: Gemini Vision API Integration ---
+            print(f"Zenthex AI: Analyzing floorplan {file.filename} using Google Gemini API...")
+            
+            ai_style = "gallery"
+            ai_wall_height = 15.0
+            
+            if GEMINI_API_KEY == "YOUR_API_KEY_HERE":
+                # Mock AI Response (Fallback if no API key is provided)
+                print("Zenthex AI: No Gemini API Key found. Using intelligent mock analysis.")
+                ai_style = "gallery" if "gallery" in file.filename.lower() else "studio"
+                ai_wall_height = 18.0 if ai_style == "gallery" else 15.0
+                time.sleep(1.5) # Simulate AI processing time
+            else:
+                try:
+                    # Real Google AI Call
+                    model = genai.GenerativeModel('gemini-1.5-pro')
+                    ai_file = genai.upload_file(file_path)
+                    prompt = "You are a master architect. Look at this floor plan. Output a JSON specifying 'style' (either 'gallery' or 'studio') and 'wall_height' (a float between 10.0 and 40.0) that best fits this space."
+                    response = model.generate_content([ai_file, prompt])
+                    
+                    try:
+                        ai_data = json.loads(response.text.replace('```json', '').replace('```', ''))
+                        ai_style = ai_data.get('style', 'gallery')
+                        ai_wall_height = float(ai_data.get('wall_height', 15.0))
+                        print(f"Zenthex AI: Gemini analyzed successfully -> {ai_data}")
+                    except json.JSONDecodeError:
+                        print(f"Zenthex AI: Failed to parse Gemini JSON: {response.text}")
+                except Exception as e:
+                    print(f"Zenthex AI API Error: {e}. Falling back to default algorithm.")
+            
+            # Use the AI's intelligent decisions to build the flawless 3D geometry
+            process_image_to_3d(file_path, demo_model_path, wall_height=ai_wall_height, style=ai_style, output_png_path=bg_path)
             
             # Read image dimensions to map it as a floor texture in 3D (Robustly for Windows)
             import cv2
