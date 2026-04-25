@@ -3,751 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>하비랩 (HabiLab) - 3D Floor Plan Generator (Nano Banana Edition)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <title>Zenthex Group | 젠텍스 홀딩스</title>
     <style>
-        :root {
-            --accent-indigo: #6366f1;
-            --accent-purple: #8b5cf6;
-            --bg-dark: #09090b;
-            --card-gray: #121214;
+        /* Import premium fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            font-family: 'Outfit', sans-serif; background-color: #050505; color: #fff;
+            overflow: hidden;
         }
 
-        body { font-family: 'Outfit', sans-serif; background-color: var(--bg-dark); color: #d1d5db; margin: 0; overflow: hidden; }
+        .container {
+            display: flex; width: 100vw; height: 100vh; position: relative;
+        }
+
+        /* Nav Bar inside Portal */
+        .corporate-nav {
+            position: absolute; top: 0; width: 100%; padding: 30px 50px;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 100; box-sizing: border-box; pointer-events: none;
+        }
+        .logo { font-size: 24px; font-weight: 800; letter-spacing: 4px; pointer-events: auto; }
+        .nav-links a {
+            color: rgba(255,255,255,0.6); text-decoration: none; margin-left: 30px;
+            font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+            transition: color 0.3s; pointer-events: auto;
+        }
+        .nav-links a:hover { color: #fff; }
+
+        /* Split Screen Modules */
+        .split {
+            flex: 1; position: relative; overflow: hidden; transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+
+        .split::before { /* Animated scanline overlay */
+            content: ''; position: absolute; inset: 0; z-index: 2;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.1) 51%);
+            background-size: 100% 4px; pointer-events: none; opacity: 0.3;
+        }
+
+        .bg-overlay {
+            position: absolute; inset: 0; background-size: cover; background-position: center;
+            filter: grayscale(80%) brightness(0.4);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1); transform: scale(1.05);
+            z-index: 0;
+        }
+
+        /* Background Graphics (Procedural CSS Gradients instead of broken images) */
+        .left-side .bg-overlay {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        }
         
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        .right-side .bg-overlay {
+            background: linear-gradient(135deg, #022c22 0%, #064e3b 100%);
         }
 
-        .loading-overlay {
-            position: absolute; inset: 0; background: rgba(9, 9, 11, 0.95);
-            backdrop-filter: blur(20px); z-index: 1000;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.5s; opacity: 0;
+        .content {
+            position: relative; z-index: 10; text-align: center; padding: 40px;
+            opacity: 0.8; transition: all 0.5s ease;
         }
-        .loading-overlay.active { display: flex; opacity: 1; }
+
+        .badge {
+            display: inline-block; padding: 6px 12px; border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50px; font-size: 10px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+            margin-bottom: 20px; backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif; font-size: 4rem; margin: 0 0 20px 0;
+            line-height: 1.1; font-weight: 400; font-style: italic;
+        }
+
+        h1 span {
+            font-family: 'Outfit', sans-serif; font-weight: 800; font-style: normal;
+        }
+
+        p {
+            font-size: 1.1rem; line-height: 1.6; color: #a1a1aa; max-width: 400px;
+            margin: 0 auto 30px auto; font-weight: 300;
+        }
+
+        .features {
+            display: flex; gap: 15px; justify-content: center; margin-bottom: 40px;
+            opacity: 0; transform: translateY(20px); transition: all 0.5s ease;
+        }
+
+        .features span {
+            font-size: 11px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.2);
+            color: #d4d4d8; font-weight: 600; letter-spacing: 1px;
+        }
+
+        .btn {
+            display: inline-block; padding: 15px 40px; border-radius: 30px; text-decoration: none;
+            font-weight: 600; font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+            transition: all 0.3s; position: relative; overflow: hidden;
+            opacity: 0; transform: translateY(20px); pointer-events: none;
+        }
+
+        .btn-studio { background-color: #fff; color: #000; }
+        .btn-studio:hover { background-color: #f4f4f5; box-shadow: 0 10px 30px rgba(255,255,255,0.2); }
         
-        .spinner {
-            border: 2px solid rgba(255, 255, 255, 0.05);
-            border-top: 2px solid var(--accent-indigo);
-            border-radius: 50%; width: 60px; height: 60px;
-            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .btn-finance { background-color: #00ffcc; color: #000; }
+        .btn-finance:hover { box-shadow: 0 10px 30px rgba(0,255,204,0.3); }
 
-        #viewer-container { width: 100%; height: 100%; position: relative; }
-        
-        /* Premium Buttons */
-        .btn-premium {
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            color: #fff; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 600;
-            transition: all 0.3s; backdrop-filter: blur(8px);
-        }
-        .btn-premium:hover { background: rgba(255,255,255,0.1); border-color: var(--accent-indigo); transform: translateY(-2px); }
-        .btn-primary { background: var(--accent-indigo); border: none; box-shadow: 0 10px 20px rgba(99,102,241,0.3); }
-        .btn-primary:hover { background: #4f46e5; box-shadow: 0 15px 30px rgba(99,102,241,0.5); }
+        /* Hover Interactions */
+        .split:hover { flex: 1.5; }
+        .split:hover .bg-overlay { filter: grayscale(0%) brightness(0.7); transform: scale(1); }
+        .split:hover .content { opacity: 1; transform: translateY(-10px); }
+        .split:hover .features { opacity: 1; transform: translateY(0); transition-delay: 0.1s; }
+        .split:hover .btn { opacity: 1; transform: translateY(0); transition-delay: 0.2s; pointer-events: auto; }
 
-        /* Instruction Overlay */
-        #walk-instructions {
-            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.7); color: white; padding: 15px 25px;
-            border-radius: 50px; font-size: 13px; font-weight: 600; letter-spacing: 1px;
-            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-            display: none; z-index: 500;
+        /* Mobile Adjustment */
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            h1 { font-size: 2.5rem; }
+            .split { flex: 1 !important; }
+            .btn, .features { opacity: 1; transform: translateY(0); pointer-events: auto; }
         }
     </style>
 </head>
-<body class="bg-[#050507] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-    
-    <!-- Global Toast Notification -->
-    <div id="toast-overlay" class="fixed inset-0 top-10 flex border-0 items-start justify-center z-50 pointer-events-none hidden transition-opacity duration-500 opacity-0">
-        <div class="glass-panel border border-purple-500/40 bg-purple-900/30 px-8 py-4 rounded-full shadow-[0_0_40px_rgba(168,85,247,0.3)] flex items-center gap-3 transform transition-transform duration-500 scale-95" id="toast-content">
-            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <span id="toast-message" class="text-white font-bold tracking-wide text-sm drop-shadow-md">알림 메시지</span>
+<body>
+    <div class="corporate-nav">
+        <div class="logo">ZENTHEX</div>
+        <div class="nav-links">
+            <a href="#">회사 소개</a>
+            <a href="#">자회사</a>
+            <a href="#">고객지원</a>
         </div>
     </div>
 
-    <!-- LANDING VIEW -->
-    <div id="landing-view" class="fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-1000">
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-950/40 via-[#050507] to-black"></div>
-        <div class="relative z-10 text-center max-w-5xl px-6">
-            <div class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white text-3xl mb-12 shadow-2xl scale-110">HL</div>
-            <h1 class="text-[clamp(1.5rem,3.5vw,5rem)] font-black text-white tracking-tighter mb-8 leading-[1.2] whitespace-nowrap overflow-hidden">상상을 공간으로 소환하는 <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">압도적 3D 건축 스튜디오</span></h1>
-            <p class="text-xl md:text-2xl text-gray-400 mb-16 max-w-3xl mx-auto font-light leading-relaxed">
-                도면 한 장으로 만나는 프리미엄 3D 공간 프로젝트.<br/>
-                <span class="text-white font-medium">HabiLab Studio에서 당신의 상상을 소환하세요.</span>
-            </p>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                <button id="btn-studio-upload" class="group p-12 rounded-[2.5rem] glass-panel hover:border-indigo-500/50 hover:bg-white/5 transition-all text-left">
-                    <div class="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-6 text-indigo-400 group-hover:scale-110 transition">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></svg>
-                    </div>
-                    <h3 class="text-2xl font-bold text-white mb-3">도면 변환 스튜디오</h3>
-                    <p class="text-sm text-gray-400 leading-relaxed">평면도(2D)를 고해상도 입체 모델(3D)로 즉각 구현하며, 주변 부지 맥락까지 연출합니다.</p>
-                </button>
-                <button id="btn-studio-prompt" class="group p-12 rounded-[2.5rem] glass-panel hover:border-purple-500/50 hover:bg-white/5 transition-all text-left">
-                     <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-6 text-purple-400 group-hover:scale-110 transition">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></svg>
-                    </div>
-                    <h3 class="text-2xl font-bold text-white mb-3">제너러티브 AI 설계</h3>
-                    <p class="text-sm text-gray-400 leading-relaxed">단락의 묘사만으로 세상에 없던 창의적인 건축 공간을 실시간으로 설계하고 투어합니다.</p>
-                </button>
+    <div class="container">
+        <!-- Left Side: Zenthex Studio -->
+        <div class="split left-side">
+            <div class="bg-overlay"></div>
+            <div class="content">
+                <div class="badge">건축 & 3D 데모 솔루션</div>
+                <h1>젠텍스 <span>스튜디오</span></h1>
+                <p>AI 기반 공간 설계의 혁명. 단 한 장의 평면도만으로 세밀하게 렌더링 된 압도적인 3D 가상 공간을 브라우저에서 관람하세요.</p>
+                <div class="features">
+                    <span>브라우저 3D 렌더링</span>
+                    <span>나노 바나나 감성</span>
+                </div>
+                <!-- 깃허브 배포용 상대경로 연결 -->
+                <a href="studio.html" class="btn btn-studio">스튜디오 갤러리 입장</a>
+            </div>
+        </div>
+
+        <!-- Right Side: Zenthex Finance -->
+        <div class="split right-side">
+            <div class="bg-overlay"></div>
+            <div class="content">
+                <div class="badge">모의 퀀트 트레이딩</div>
+                <h1>젠텍스 <span>파이낸스</span></h1>
+                <p>알고리즘 기반 초단타 트레이딩 시스템. 실제 거래소를 연동한 가상 자산 모의투자 백테스팅 관제소를 체험해보세요.</p>
+                <div class="features">
+                    <span>실시간 업비트 시세 연동</span>
+                    <span>JS 자동매매 시뮬레이션</span>
+                </div>
+                <!-- 깃허브 배포용 상대경로 연결 -->
+                <a href="finance.html" class="btn btn-finance">모의 터미널 가동</a>
             </div>
         </div>
     </div>
-
-    <!-- WORKSPACE VIEW -->
-    <div id="workspace-view" class="hidden min-h-screen flex flex-col opacity-0 transition-all duration-700">
-        <nav class="sticky top-0 z-50 backdrop-blur-2xl bg-black/40 border-b border-white/5 h-20 flex items-center px-10 justify-between">
-            <div class="flex items-center gap-4 cursor-pointer group" onclick="goHome()">
-                <div class="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-sm font-bold text-white shadow-lg group-hover:rotate-12 transition-transform">HL</div>
-                <span class="font-extrabold text-white tracking-widest text-base uppercase">HabiLab Studio <span class="text-indigo-400 ml-1">PRO</span></span>
-            </div>
-            <div id="nav-address" class="hidden md:flex items-center gap-3 px-6 py-2 bg-white/5 border border-white/10 rounded-full text-xs font-medium text-gray-400">
-                <svg class="w-3.5 h-3.5 text-indigo-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></svg>
-                <span id="display-address">Site Location Not Set</span>
-            </div>
-            <div class="flex gap-4">
-                 <!-- Business / Monetization Stub -->
-                 <button class="hidden md:flex flex-col items-end justify-center px-4 py-1 border-r border-white/10 opacity-80 hover:opacity-100 transition-opacity">
-                     <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Pricing Plan</span>
-                     <span class="text-xs text-purple-400 font-bold">PRO 업그레이드</span>
-                 </button>
-                 <button class="hidden md:flex items-center gap-2 text-xs font-medium text-gray-400 hover:text-white px-2 pr-4 transition-colors">
-                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                     전문가 로그인
-                 </button>
-
-                 <button id="btn-walk" class="btn-premium flex items-center gap-2 bg-white/10 hover:bg-white/20 border-white/20 text-sm ml-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                    1인칭 스튜디오 투어
-                </button>
-            </div>
-        </nav>
-
-        <main class="flex-grow grid grid-cols-12 overflow-hidden h-[calc(100vh-5rem)]">
-            <!-- Left: Side Control (col-span-3) -->
-            <div class="col-span-1 lg:col-span-3 border-r border-white/5 p-8 flex flex-col gap-8 bg-[#0c0c0e] overflow-y-auto">
-                
-                <!-- New Project Button -->
-                <button onclick="startNewProject()" class="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[11px] font-bold text-gray-400 hover:text-white uppercase tracking-widest transition-all group">
-                    <svg class="w-4 h-4 text-gray-500 group-hover:text-indigo-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    새 프로젝트 캔버스
-                </button>
-
-                <!-- Tab Switcher -->
-                <div class="flex bg-white/5 rounded-xl p-1 gap-1">
-                    <button id="tab-btn-upload" onclick="switchTab('upload')" class="flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-indigo-500/20 text-indigo-300 transition-all">도면 에셋</button>
-                    <button id="tab-btn-prompt" onclick="switchTab('prompt')" class="flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg text-gray-500 hover:text-gray-300 transition-all">AI 생성랩</button>
-                </div>
-
-                <!-- Tab Contents -->
-                <div id="upload-section" class="flex flex-col gap-6 transition-opacity duration-300">
-                    <div>
-                        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <span class="w-1 h-3 bg-indigo-500 rounded-full"></span> Architecture Asset
-                        </h2>
-                        <div id="drop-zone" class="border-2 border-dashed border-white/5 rounded-3xl p-8 text-center hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer group">
-                            <div class="w-10 h-10 bg-white/5 rounded-2xl mx-auto mb-4 flex items-center justify-center text-gray-500 group-hover:text-indigo-400 transition">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></svg>
-                            </div>
-                            <p class="text-xs text-gray-400 font-medium">부지 도면을 업로드하세요</p>
-                        </div>
-                        <input type="file" id="file-input" class="hidden">
-                    </div>
-                    
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-600 uppercase tracking-[0.2em] mb-2 block">Site Address (부지 주소)</label>
-                        <input type="text" id="site-address" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-300 focus:outline-none focus:border-indigo-500/50" placeholder="예: 서울시 강남구 삼성동">
-                    </div>
-                </div>
-
-                <div id="prompt-section" class="hidden flex flex-col gap-6 transition-opacity duration-300">
-                    <div>
-                        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <span class="w-1 h-3 bg-purple-500 rounded-full"></span> AI Generative Space
-                        </h2>
-                        <textarea id="ai-prompt" class="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm focus:outline-none focus:border-purple-500/50 transition-all text-gray-300 h-44 leading-relaxed" placeholder="상상하는 공간의 무드와 배치를 묘사해주세요..."></textarea>
-                        <button id="btn-generate" class="w-full mt-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-[1.02] active:scale-95 text-white font-bold py-4 rounded-2xl transition-all shadow-2xl">신비로운 공간 창조</button>
-                        <div id="ai-status-box" class="hidden mt-4 p-4 rounded-xl text-xs font-medium border border-purple-500/20 bg-purple-500/5 text-purple-300"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Hub (col-span-9) -->
-            <div class="col-span-1 lg:col-span-9 relative bg-[#050507]">
-                <!-- 2D Mini Monitoring (Floating top-left) -->
-                <div id="mini-2d" class="absolute top-8 left-8 w-64 h-64 glass-panel rounded-3xl z-40 p-4 border border-white/10 shadow-2xl transition-all hover:scale-105">
-                     <p class="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span> Blueprint Scan
-                    </p>
-                    <div class="w-full h-48 bg-black/40 rounded-xl flex items-center justify-center overflow-hidden relative">
-                         <img id="preview-img" class="max-w-full max-h-full object-contain hidden opacity-90 transition-opacity" src="" alt="2D preview">
-                         <div id="2d-placeholder" class="text-[9px] uppercase tracking-[0.2em] text-gray-700 font-bold">Scanning...</div>
-                         <div id="2d-loading" class="loading-overlay"> <div class="spinner !w-8 !h-8"></div> </div>
-                    </div>
-                </div>
-
-                <!-- 3D Viewport Full -->
-                <div id="viewer-container" class="w-full h-full">
-                    <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-                         <p class="text-xs uppercase tracking-[0.4em] text-gray-600 font-bold animate-pulse">Initializing Virtual Construction...</p>
-                    </div>
-                    <div id="3d-loading" class="loading-overlay"> <div class="spinner"></div> </div>
-                    
-                    <!-- Walk Instructions -->
-                    <div id="walk-instructions">
-                        WASD - 이동  |  MOUSE - 둘러보기  |  ESC - 3D 모드로 복귀
-                    </div>
-
-                    <!-- Material Palette Controller -->
-                    <div id="material-controller" class="absolute bottom-10 right-10 glass-panel border border-white/10 p-5 rounded-3xl flex flex-col gap-4 shadow-2xl z-40 transition-opacity duration-500 opacity-0 pointer-events-none">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] text-center">Style Palette</p>
-                        <div class="flex gap-3">
-                            <button onclick="applyMaterialMode('nano')" title="Nano Banana (Glass/White)" class="w-10 h-10 rounded-full bg-gradient-to-br from-white to-gray-200 border-2 border-white shadow-[0_0_15px_rgba(255,255,255,0.5)] hover:scale-110 active:scale-95 transition-all"></button>
-                            <button onclick="applyMaterialMode('concrete')" title="Exposed Concrete (Minimalist)" class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 border-2 border-gray-300 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:scale-110 active:scale-95 transition-all"></button>
-                            <button onclick="applyMaterialMode('wood')" title="Dark Wood (Modern)" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#4a3018] to-[#2b180d] border-2 border-[#5c4028] shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:scale-110 active:scale-95 transition-all"></button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Import Map for Three.js dependencies -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
-
-    <!-- Core Script -->
-    <script type="module">
-        import * as THREE from 'three';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-
-        // Refs
-        const landingView = document.getElementById('landing-view');
-        const workspaceView = document.getElementById('workspace-view');
-        const viewerContainer = document.getElementById('viewer-container');
-        const aiPrompt = document.getElementById('ai-prompt');
-        const aiStatusBox = document.getElementById('ai-status-box');
-        const previewImg = document.getElementById('preview-img');
-        const displayAddress = document.getElementById('display-address');
-        const siteAddress = document.getElementById('site-address');
-        const instr = document.getElementById('walk-instructions');
-
-        let walkMode = false;
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-        let velocity = new THREE.Vector3();
-        let direction = new THREE.Vector3();
-
-        // 3D Engine Setup
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050507);
-        scene.fog = new THREE.FogExp2(0x050507, 0.002);
-
-        const camera = new THREE.PerspectiveCamera(45, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.1, 2000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        viewerContainer.appendChild(renderer.domElement);
-
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(viewerContainer.clientWidth, viewerContainer.clientHeight), 0.5, 0.4, 0.85);
-        composer.addPass(bloomPass);
-        composer.addPass(new OutputPass());
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.maxPolarAngle = Math.PI/2 - 0.05;
-
-        const walkControls = new PointerLockControls(camera, document.body);
-        scene.add(walkControls.getObject());
-
-        // Dynamic Lighting
-        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-        scene.add(ambient);
-
-        const hemiLight = new THREE.HemisphereLight(0x6366f1, 0x09090b, 0.6);
-        scene.add(hemiLight);
-
-        const sun = new THREE.DirectionalLight(0xffffff, 2.0);
-        sun.position.set(100, 200, 100);
-        sun.castShadow = true;
-        sun.shadow.mapSize.set(4096, 4096);
-        sun.shadow.camera.left = -200;
-        sun.shadow.camera.right = 200;
-        sun.shadow.camera.top = 200;
-        sun.shadow.camera.bottom = -200;
-        scene.add(sun);
-
-        // Env Components (Premium Grid)
-        const grid = new THREE.GridHelper(1000, 100, 0x1f2937, 0x0c0c0e);
-        grid.position.y = -0.05;
-        scene.add(grid);
-
-        // --- Single Page App UI State ---
-        window.switchTab = (tab) => {
-            const upSec = document.getElementById('upload-section');
-            const prSec = document.getElementById('prompt-section');
-            const upBtn = document.getElementById('tab-btn-upload');
-            const prBtn = document.getElementById('tab-btn-prompt');
-            
-            if (tab === 'upload') {
-                upSec.classList.remove('hidden'); prSec.classList.add('hidden');
-                upBtn.className = "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-indigo-500/20 text-indigo-300 transition-all";
-                prBtn.className = "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg text-gray-500 hover:text-gray-300 transition-all";
-            } else {
-                prSec.classList.remove('hidden'); upSec.classList.add('hidden');
-                prBtn.className = "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-purple-500/20 text-purple-300 transition-all";
-                upBtn.className = "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg text-gray-500 hover:text-gray-300 transition-all";
-            }
-        };
-
-        window.showToast = (msg) => {
-            const overlay = document.getElementById('toast-overlay');
-            const content = document.getElementById('toast-content');
-            document.getElementById('toast-message').innerText = msg;
-            
-            overlay.classList.remove('hidden');
-            setTimeout(() => {
-                overlay.classList.remove('opacity-0');
-                content.classList.remove('scale-95');
-                content.classList.add('scale-100');
-            }, 10);
-            
-            setTimeout(() => {
-                overlay.classList.add('opacity-0');
-                content.classList.remove('scale-100');
-                content.classList.add('scale-95');
-                setTimeout(() => overlay.classList.add('hidden'), 500);
-            }, 4000);
-        };
-
-        // Material Customization Logic
-        window.loadedModel = null;
-        window.applyMaterialMode = (mode) => {
-            if (!window.loadedModel) return;
-            
-            // Define Premium BIM Materials
-            const materials = {
-                'nano': {
-                    wall: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.1, clearcoat: 1.0, side: THREE.DoubleSide }),
-                    floor: new THREE.MeshPhysicalMaterial({ color: 0x111111, roughness: 0.05, metalness: 0.8, side: THREE.DoubleSide }),
-                    glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.0, ior: 1.5, thickness: 0.5, side: THREE.DoubleSide })
-                },
-                'concrete': {
-                    wall: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.8, metalness: 0.2, side: THREE.DoubleSide }),
-                    floor: new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.9, metalness: 0.1, side: THREE.DoubleSide }),
-                    glass: new THREE.MeshPhysicalMaterial({ color: 0x3b82f6, transmission: 0.6, opacity: 1, transparent: true, roughness: 0.1, side: THREE.DoubleSide })
-                },
-                'wood': {
-                    wall: new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide }), // Dark Amber
-                    floor: new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide }),
-                    glass: new THREE.MeshPhysicalMaterial({ color: 0xfffbeb, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.2, side: THREE.DoubleSide })
-                }
-            };
-
-            const selectedMats = materials[mode];
-
-            window.loadedModel.traverse(n => {
-                if (n.isMesh) {
-                    const name = (n.name || "").toLowerCase();
-                    // BIM Layer Routing
-                    if (name.includes('floor')) {
-                        n.material = selectedMats.floor;
-                    } else if (name.includes('window') || name.includes('glass')) {
-                        n.material = selectedMats.glass;
-                    } else {
-                        // Default to Wall for backwards compatibility
-                        n.material = selectedMats.wall;
-                    }
-                }
-            });
-            window.showToast("스타일 재질이 완벽히 동기화 되었습니다.");
-        };
-
-        window.startNewProject = () => {
-             // Reset Scene Content
-             scene.children.slice().forEach(c => { 
-                if(c.isGroup || c.isMesh) { 
-                    if(c.type !== 'GridHelper' && !c.isLight) scene.remove(c); 
-                } 
-             });
-             const oldContext = scene.getObjectByName('UrbanContextGroup');
-             if(oldContext) scene.remove(oldContext);
-
-             // Hide Utilities
-             const matCtrl = document.getElementById('material-controller');
-             if(matCtrl) {
-                 matCtrl.classList.add('opacity-0');
-                 matCtrl.classList.add('pointer-events-none');
-             }
-
-             // Reset Preview & Alerts
-             previewImg.classList.add('hidden');
-             previewImg.src = "";
-             document.getElementById('2d-placeholder').classList.remove('hidden');
-             document.getElementById('placeholder').classList.remove('hidden');
-             aiStatusBox.classList.add('hidden');
-             aiPrompt.value = "";
-             
-             // Reset Camera System
-             camera.position.set(100, 80, 100);
-             controls.target.set(0, 0, 0);
-             controls.autoRotate = false;
-             controls.update();
-
-             window.showToast("새 프로젝트 캔버스가 초기화되었습니다.");
-        };
-
-        window.enterWorkspace = (mode) => {
-            console.log("Navigating to Workspace Mode:", mode);
-            const landing = document.getElementById('landing-view');
-            const workspace = document.getElementById('workspace-view');
-            
-            window.switchTab(mode);
-            
-            landing.style.opacity = '0';
-            landing.style.transform = 'scale(1.05) translateY(-20px)';
-            
-            setTimeout(() => {
-                landing.classList.add('hidden');
-                workspace.classList.remove('hidden');
-                setTimeout(() => { 
-                    workspace.style.opacity = '1'; 
-                    window.dispatchEvent(new Event('resize'));
-                }, 50);
-            }, 600);
-        };
-
-        window.goHome = () => {
-             const workspace = document.getElementById('workspace-view');
-             const landing = document.getElementById('landing-view');
-             workspace.style.opacity = '0';
-             setTimeout(() => {
-                 workspace.classList.add('hidden');
-                 landing.classList.remove('hidden');
-                 landing.style.opacity = '1';
-                 landing.style.transform = 'scale(1) translateY(0)';
-             }, 500);
-        };
-
-        // --- 3D Engine Setup ---
-        // Scene already defined at the top
-
-        window.toggleWalkMode = () => {
-            if (!walkMode) {
-                walkControls.lock();
-            } else {
-                walkControls.unlock();
-            }
-        };
-
-        // --- Walkthrough Logic ---
-        walkControls.addEventListener('lock', () => {
-            walkMode = true;
-            controls.enabled = false;
-            instr.style.display = 'block';
-            document.getElementById('btn-walk').innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></svg> Exit View`;
-            camera.position.y = 1.8; 
-        });
-
-        walkControls.addEventListener('unlock', () => {
-            walkMode = false;
-            controls.enabled = true;
-            instr.style.display = 'none';
-            document.getElementById('btn-walk').innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M5 5l7 7-7 7"></svg> Enter Building`;
-            camera.position.set(100, 80, 100);
-            controls.update();
-        });
-
-        const onKeyDown = (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyD': moveRight = true; break;
-            }
-        };
-        const onKeyUp = (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyD': moveRight = false; break;
-            }
-        };
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
-
-        // Site Context logic
-        siteAddress.addEventListener('change', () => {
-            const addr = siteAddress.value;
-            displayAddress.textContent = addr || "Global Site Node";
-            // Heuristic environment change
-            if(addr.includes("강남") || addr.includes("서울")) {
-                scene.background = new THREE.Color(0x0c0c1e);
-                hemiLight.color.setHex(0xbc9fff);
-            } else if(addr.includes("제주") || addr.includes("바다")) {
-                scene.background = new THREE.Color(0x1a2e3b);
-                hemiLight.color.setHex(0xa0d8ef);
-            }
-        });
-
-        // --- Procedural Urban Context ---
-        function generateUrbanContext(scene, boundsSize) {
-            // Remove previous context if any
-            const oldContext = scene.getObjectByName('UrbanContextGroup');
-            if(oldContext) scene.remove(oldContext);
-
-            const contextGroup = new THREE.Group();
-            contextGroup.name = 'UrbanContextGroup';
-
-            // Premium Minimalist Car Material (Nano Banana Style)
-            const carMaterialBody = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.3, clearcoat: 1.0 });
-            const carMaterialWindow = new THREE.MeshPhysicalMaterial({ color: 0x050505, roughness: 0.0, transmission: 0.6, thickness: 0.5 });
-            
-            // Generate Cars
-            for(let i=0; i<6; i++) {
-                const carGroup = new THREE.Group();
-                const body = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 1.8), carMaterialBody);
-                body.position.y = 0.8;
-                body.castShadow = true;
-                const top = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.8, 1.6), carMaterialWindow);
-                top.position.set(-0.2, 1.8, 0);
-                carGroup.add(body, top);
-                
-                // Position organically around the outer ring
-                const angle = Math.random() * Math.PI * 2;
-                const distance = (boundsSize * 0.6) + Math.random() * (boundsSize * 0.4);
-                carGroup.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
-                carGroup.rotation.y = Math.random() * Math.PI;
-                contextGroup.add(carGroup);
-            }
-
-            // Generate Emissive Streetlights
-            const poleMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 });
-            const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff5e6, emissive: 0xfff5e6, emissiveIntensity: 2.5 });
-            
-            for(let i=0; i<12; i++) {
-                const lightGroup = new THREE.Group();
-                const poleHeight = 6 + Math.random() * 2;
-                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, poleHeight), poleMat);
-                pole.position.y = poleHeight / 2;
-                pole.castShadow = true;
-                const bulb = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.4), lightMat);
-                bulb.position.set(0.5, poleHeight, 0);
-                
-                // Add actual point light for glow/ambient reflection
-                const pLight = new THREE.PointLight(0xffeacc, 0.6, 40);
-                pLight.position.set(0.5, poleHeight - 0.5, 0);
-                
-                lightGroup.add(pole, bulb, pLight);
-                
-                const angle = (i / 12) * Math.PI * 2;
-                const distance = boundsSize * 0.65; // Street ring
-                lightGroup.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
-                lightGroup.rotation.y = -angle + Math.PI; // Face inward toward building
-                contextGroup.add(lightGroup);
-            }
-
-            // Generate Abstract Minimal Trees (Glass/White Cones)
-            const treeMat = new THREE.MeshPhysicalMaterial({ color: 0xf3f4f6, transmission: 0.6, roughness: 0.4, metalness: 0.1, ior: 1.4 });
-            for(let i=0; i<25; i++) {
-                const treeHeight = 3 + Math.random() * 5;
-                const tree = new THREE.Mesh(new THREE.ConeGeometry(treeHeight * 0.25, treeHeight, 5), treeMat);
-                tree.position.y = treeHeight / 2;
-                tree.castShadow = true;
-                
-                const angle = Math.random() * Math.PI * 2;
-                const distance = (boundsSize * 0.5) + Math.random() * (boundsSize * 0.8);
-                tree.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
-                tree.rotation.y = Math.random() * Math.PI;
-                contextGroup.add(tree);
-            }
-
-            scene.add(contextGroup);
-        }
-
-        // Model Loader
-        window.loadModel = (url, bgUrl, w, h) => {
-            const loader = new GLTFLoader();
-            loader.load(url, (gltf) => {
-                // Garbage collection
-                scene.children.slice().forEach(c => { 
-                    if(c.isGroup || c.isMesh) { 
-                        if(c.type !== 'GridHelper' && !c.isLight) scene.remove(c); 
-                    } 
-                });
-                
-                const model = gltf.scene;
-                window.loadedModel = model; // Store globally for Material switching
-                
-                // Initial Default Application
-                window.applyMaterialMode('nano');
-                model.traverse(n => {
-                    if (n.isMesh) {
-                        n.castShadow = true; 
-                        n.receiveShadow = true;
-                    }
-                });
-                
-                scene.add(model);
-
-                // Auto-Focus & Scale computation
-                const box = new THREE.Box3().setFromObject(model);
-                const size = box.getSize(new THREE.Vector3());
-                const center = box.getCenter(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.z);
-                
-                // Construct procedural urban setting based on building size
-                generateUrbanContext(scene, maxDim);
-
-                camera.position.set(center.x + maxDim * 1.5, maxDim * 1.2, center.z + maxDim * 1.5);
-                controls.target.copy(center);
-                controls.autoRotate = true; // Cinematic Showcase
-                controls.autoRotateSpeed = 1.0;
-                controls.update();
-
-                document.getElementById('placeholder').classList.add('hidden');
-                window.showToast("공간 조형 및 도시 맥락 연출 완료");
-                
-                // Reveal Material Controller
-                const matCtrl = document.getElementById('material-controller');
-                if(matCtrl) {
-                    matCtrl.classList.remove('opacity-0');
-                    matCtrl.classList.remove('pointer-events-none');
-                }
-            });
-        };
-
-        // Animation Loop
-        let prevTime = performance.now();
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now();
-            
-            if (walkControls.isLocked === true) {
-                const delta = (time - prevTime) / 1000;
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
-                direction.normalize();
-
-                if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
-
-                walkControls.moveRight(-velocity.x * delta);
-                walkControls.moveForward(-velocity.z * delta);
-            }
-            
-            prevTime = time;
-            controls.update();
-            composer.render();
-        }
-        animate();
-
-        // API Handler Integration
-        const showLoading = () => { document.getElementById('2d-loading').classList.add('active'); document.getElementById('3d-loading').classList.add('active'); };
-        const hideLoading = () => { document.getElementById('2d-loading').classList.remove('active'); document.getElementById('3d-loading').classList.remove('active'); };
-
-        window.handleUpload = async (file) => {
-            aiStatusBox.classList.remove('hidden');
-            aiStatusBox.innerHTML = `Constructing Architecture Artifact...<br/><span class="text-[9px] opacity-60">${file.name}</span>`;
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (e) => { previewImg.src = e.target.result; previewImg.classList.remove('hidden'); document.getElementById('2d-placeholder').classList.add('hidden'); };
-                reader.readAsDataURL(file);
-            }
-            const fd = new FormData(); fd.append('file', file);
-            try {
-                showLoading();
-                const res = await fetch('/upload', { method: 'POST', body: fd });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    aiStatusBox.innerHTML = "Site Deployment Successful.";
-                    window.loadModel(data.model_url, data.bg_url, data.width, data.height);
-                } else { aiStatusBox.textContent = "Processing Fault: " + data.message; }
-            } catch(e) { aiStatusBox.textContent = "System Orchestration Timeout"; }
-            finally { hideLoading(); }
-        };
-
-        const fileInput = document.getElementById('file-input');
-        document.getElementById('drop-zone').onclick = () => fileInput.click();
-        fileInput.onchange = (e) => { if(e.target.files[0]) window.handleUpload(e.target.files[0]); };
-
-        document.getElementById('btn-generate').onclick = async () => {
-            const prompt = aiPrompt.value.trim();
-            if(!prompt) return alert("부디 당신의 상상을 입력해 주세요.");
-            aiStatusBox.classList.remove('hidden');
-            aiStatusBox.innerHTML = "AI가 상상을 현실로 소환하고 있습니다...";
-            const fd = new FormData(); fd.append('prompt', prompt);
-            try {
-                showLoading();
-                const res = await fetch('/generate', { method: 'POST', body: fd });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    aiStatusBox.textContent = "상상이 공간으로 성공적으로 소환되었습니다.";
-                    if(data.bg_url) { previewImg.src = data.bg_url; previewImg.classList.remove('hidden'); document.getElementById('2d-placeholder').classList.add('hidden'); }
-                    window.loadModel(data.model_url, data.bg_url, data.width, data.height);
-                } else { aiStatusBox.textContent = "AI Failure: " + data.message; }
-            } catch(e) { aiStatusBox.textContent = "Server Synchronization Failure"; }
-            finally { hideLoading(); }
-        };
-
-        window.addEventListener('resize', () => {
-            const w = viewerContainer.clientWidth;
-            const h = viewerContainer.clientHeight;
-            if (w === 0) return;
-            camera.aspect = w / h;
-            camera.updateProjectionMatrix();
-            renderer.setSize(w, h);
-            composer.setSize(w, h);
-        });
-
-        // --- Event Listener Registration (Bulletproof) ---
-        window.addEventListener('load', () => {
-            console.log("HabiLab Studio Engine Initialized.");
-            document.getElementById('btn-studio-upload')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.enterWorkspace('upload');
-            });
-            document.getElementById('btn-studio-prompt')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.enterWorkspace('prompt');
-            });
-            
-            document.getElementById('btn-walk')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.toggleWalkMode();
-            });
-            
-            // Initial resize fix
-            window.dispatchEvent(new Event('resize'));
-        });
-    </script>
 </body>
 </html>
