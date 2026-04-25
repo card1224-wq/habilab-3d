@@ -37,7 +37,10 @@ async def upload_floorplan(file: UploadFile = File(...)):
         
         ext = file.filename.split('.')[-1].lower()
         if ext in ['jpg', 'jpeg', 'png']:
-            process_image_to_3d(file_path, demo_model_path, wall_height=15.0)
+            bg_filename = model_filename.replace('.glb', '_bg.png')
+            bg_path = f"static/models/{bg_filename}"
+            
+            process_image_to_3d(file_path, demo_model_path, wall_height=15.0, output_png_path=bg_path)
             
             # Read image dimensions to map it as a floor texture in 3D (Robustly for Windows)
             import cv2
@@ -51,11 +54,6 @@ async def upload_floorplan(file: UploadFile = File(...)):
             else:
                 # Fallback if image reading fails
                 sw, sh = 100.0, 100.0
-            
-            # Copy uploaded image to static for frontend loading
-            bg_filename = model_filename.replace('.glb', f'_bg.{ext}')
-            bg_path = f"static/models/{bg_filename}"
-            shutil.copy(file_path, bg_path)
             
             return {
                 "status": "success", 
@@ -79,42 +77,16 @@ async def generate_floorplan(prompt: str = Form(...)):
         import numpy as np
         
         # 1. Advanced Layout Logic based on Prompt
+        style = "gallery"
+        if any(keyword in prompt.lower() for keyword in ["스튜디오", "studio", "은밀", "프라이빗", "벙커", "bunker", "hideout", "은신처", "방패"]):
+            style = "studio"
+            
         img = np.ones((1000, 1500), dtype=np.uint8) * 255
         wall_thickness = 15
         font = cv2.FONT_HERSHEY_DUPLEX
         
-        # Draw Main Boundary
+        # ... We don't really care about this draft drawing anymore since cv_engine overrides it, but we keep it to not break img shape parsing.
         cv2.rectangle(img, (100, 100), (1400, 900), (0,0,0), wall_thickness)
-        
-        # Heuristic: Split rooms based on keywords
-        # Heuristic: Premium Layout Logic (Nano Banana Style)
-        if "거실" in prompt or "living" in prompt.lower():
-            # Classic 3-Bay Partitioning Mockup
-            cv2.line(img, (600, 100), (600, 900), (0,0,0), wall_thickness) # Front Divider
-            cv2.line(img, (1000, 100), (1000, 900), (0,0,0), wall_thickness) # Bedroom separation
-            
-            # Sub-dividers for Master/Guest
-            cv2.line(img, (1000, 500), (1400, 500), (0,0,0), wall_thickness)
-            
-            # Annotations
-            cv2.putText(img, "MAIN LIVING", (120, 500), font, 1.2, (0,0,0), 3)
-            cv2.putText(img, "TERRACE ZONE", (620, 300), font, 1.0, (0,0,0), 2)
-            cv2.putText(img, "MASTER BED", (1020, 300), font, 1.0, (0,0,0), 2)
-            cv2.putText(img, "GUEST ROOM", (1020, 750), font, 1.0, (0,0,0), 2)
-            
-            if "주방" in prompt or "kitchen" in prompt.lower():
-                 cv2.rectangle(img, (100, 100), (500, 350), (0,0,0), wall_thickness)
-                 cv2.putText(img, "OPEN KITCHEN", (120, 250), font, 0.8, (0,0,0), 2)
-        else:
-            # Minimalist Gallery / Studio Layout
-            cv2.line(img, (750, 100), (750, 900), (0,0,0), wall_thickness)
-            cv2.putText(img, "ATELIER A", (250, 500), font, 1.5, (0,0,0), 3)
-            cv2.putText(img, "ATELIER B", (950, 500), font, 1.5, (0,0,0), 3)
-            
-        # Draw "Floor Polish" - Door indicators (Mock)
-        cv2.circle(img, (600, 500), 10, (150,150,150), -1) # Door pivot A
-        cv2.circle(img, (1000, 300), 10, (150,150,150), -1) # Door pivot B
-
         cv2.putText(img, f"HABILAB PREMIUM AI DESIGN", (100, 60), font, 0.8, (120,120,120), 2)
         
         # 2. Save Generated 2D Plan
@@ -123,18 +95,17 @@ async def generate_floorplan(prompt: str = Form(...)):
         cv2.imwrite(img_path, img)
         
         demo_model_path = f"static/models/{filename}.glb"
-        bg_path = f"static/models/{filename}_bg.jpg"
-        cv2.imwrite(bg_path, img)
+        bg_path = f"static/models/{filename}_bg.png"
         
         from core.cv_engine import process_image_to_3d
-        # Premium extrusion: 35.0 for dramatic interior feel
-        process_image_to_3d(img_path, demo_model_path, wall_height=35.0)
+        # Premium extrusion: 35.0 for dramatic interior feel, pass the dynamically chosen style
+        process_image_to_3d(img_path, demo_model_path, wall_height=35.0, style=style, output_png_path=bg_path)
         
         return {
             "status": "success", 
             "message": "AI premium spatial construction complete", 
             "model_url": f"/static/models/{filename}.glb",
-            "bg_url": f"/static/models/{filename}_bg.jpg",
+            "bg_url": f"/static/models/{filename}_bg.png",
             "width": 150.0,
             "height": 100.0
         }
